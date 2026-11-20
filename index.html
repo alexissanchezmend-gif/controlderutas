@@ -92,7 +92,7 @@ table{border-collapse:collapse;width:100%}
 th{font-size:12px;font-weight:700;color:#fff;background:#3a3a3a;text-align:left;padding:7px 9px;white-space:nowrap}
 td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
 td.r,th.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.hadd{border:1px dashed #bdbdbd;border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px}.hadd .tools{margin:4px 0 0}.hadd button[disabled]{opacity:.5;cursor:not-allowed}#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
+.closebox{display:flex;flex-direction:column;gap:6px;margin-top:4px}.closebox button{min-height:40px;font-size:13px}.closebtn{background:#6e2b2b;color:#fff;border-color:#6e2b2b;font-weight:700}.closebox button:not(.ybtn):not(.closebtn){background:#2a2a2a;color:#fff;border-color:#444}.hadd{border:1px dashed #bdbdbd;border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px}.hadd .tools{margin:4px 0 0}.hadd button[disabled]{opacity:.5;cursor:not-allowed}#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
 td.bar{width:30%;min-width:150px;vertical-align:middle}
 .hi{color:#c62828;font-weight:700}.hi::before{content:'▲ ';font-size:10px}
 .note{font-size:12px;color:var(--muted)}
@@ -128,7 +128,7 @@ pre,.scroll{overflow-x:auto}
     <a href="#historico">Histórico diario</a>
   </nav>
   <div class="ld"><b class="ldh">Actualización de datos</b><span class="ldn">Solo el administrador sube archivos: BEEs y Hoja de Ruta varias veces al día, la Disponibilidad solo si cambia. Todos ven la última carga al instante.</span>
-    <div class="slots" id="slots"></div><p class="ldn" id="syncMsg" role="status"></p><div id="auth" class="auth"></div></div>
+    <div class="slots" id="slots"></div><div id="closeBox"></div><p class="ldn" id="syncMsg" role="status"></p><div id="auth" class="auth"></div></div>
 </aside>
 <main>
   <div class="strip" id="strip"></div>
@@ -220,7 +220,8 @@ const pct=(a,b)=>b?Math.round(a*1000/b)/10:0;
 const MAP={NOT_STARTED:'EN RUTA',WAITING_MODULATION:'ALERTADO',DELIVERY_STARTED:'EN RUTA',PARTIAL_DELIVERY:'RECHAZO',RESCHEDULED:'EN RUTA',ON_THE_WAY:'EN RUTA',DEFINITELY_RETURNED:'RECHAZO',IN_TREATMENT:'RECHAZO'};
 const COL={ENT:'var(--ent)',RECH:'var(--rech)',ALERT:'var(--alert)',REPRO:'var(--repro)',RUTA:'var(--ruta)'};
 const NAME={ENT:'Entregado',RECH:'Rechazo',ALERT:'Alertado',REPRO:'Reprogramado',RUTA:'En ruta'};
-let viewDate=null,hist={},histList=[];let raw={bees:null,hoja:null,disp:null},files={},rows=[],corte=null,dispRows=[],ai={},aiSum=null,tipo='TODOS';
+let viewDate=null,hist={},histList=[],liveDate=null;
+function liveSrc(){const ds=daysOf(raw.bees);if(!ds.length)return raw;const d=ds.includes(liveDate)?liveDate:ds[ds.length-1];return{bees:raw.bees.filter(r=>isoDay(r.tour_date)===d),hoja:hojaFor(raw.hoja,d).rows,disp:raw.disp}}let raw={bees:null,hoja:null,disp:null},files={},rows=[],corte=null,dispRows=[],ai={},aiSum=null,tipo='TODOS';
 const st={edt:'',con:'',rut:'',can:true,meta:10.5};
 const toObjs=p=>p.rows.map(r=>Object.fromEntries(p.cols.map((c,i)=>[c,r[i]])));
 const code=v=>String(v??'').trim().replace(/\.0+$/,'');
@@ -234,7 +235,7 @@ function group(a,f){const m=new Map();for(const r of a){const k=f(r);if(!m.has(k
 const opts=(el,list,val,all)=>{el.innerHTML=`<option value="">${all}</option>`+list.map(v=>`<option value="${esc(v[0])}"${v[0]===val?' selected':''}>${esc(v[1])}</option>`).join('')};
 
 function build(){
-  const S=viewDate?hist:raw;if(!S.bees||!S.hoja||!S.disp)return;
+  const S=viewDate?hist:liveSrc();if(!S.bees||!S.hoja||!S.disp)return;
   const D=[],sr=new Set(),sp=new Set();
   for(const d of S.disp){if(String(d.CAPAC||'').trim()==='SIN PLACA')continue;const r=up(d['RUTA SAP']);if(sr.has(r))continue;sr.add(r);D.push(d)}
   const disp=new Map();dispRows=[];for(const d of D){const p=up(d.placa);if(sp.has(p))continue;sp.add(p);disp.set(p,d);dispRows.push(d)}
@@ -260,7 +261,7 @@ function build(){
   // Cierre de ruta: alertados pendientes pasan a rechazo a las 23:59 con el motivo como observación
   const hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'});
   const cerr=new Map();for(const [p,x] of group(rows.filter(r=>r.tourSt!=='CANCELLED'),r=>r.placa))cerr.set(p,x.every(r=>r.end||r.tourSt==='CONCLUDED'||r.tourSt==='POST_ROUTE'));
-  for(const r of rows)if(r.k==='ALERT'&&(cerr.get(r.placa)||(r.date&&r.date<hoy))){r.k='RECH';r.av='RECHAZO';r.cierre=true;r.obs='Cierre de ruta 23:59 · rechazo por '+r.motivo.charAt(0)+r.motivo.slice(1).toLowerCase()+(r.obs?' · '+r.obs:'')}
+  for(const r of rows)if(r.k==='ALERT'&&(cerr.get(r.placa)||(r.date&&r.date<hoy)||(typeof closedSet==='function'&&closedSet().has(isoDay(r.date))))){r.k='RECH';r.av='RECHAZO';r.cierre=true;r.obs='Cierre de ruta 23:59 · rechazo por '+r.motivo.charAt(0)+r.motivo.slice(1).toLowerCase()+(r.obs?' · '+r.obs:'')}
   opts($('#fEdt'),[...new Set(rows.map(r=>r.edt))].sort().map(e=>[e,short(e)]),st.edt,'Todos');
   opts($('#fCon'),[...new Set(rows.map(r=>r.con))].sort().map(e=>[e,e]),st.con,'Todos');
   opts($('#fRut'),[...new Set(rows.map(r=>r.ruta))].sort().map(e=>[e,e]),st.rut,'Todas');
@@ -348,7 +349,7 @@ function render(){
   // rutas criticas
   const cr=[...group(a,r=>r.ruta)].map(([k,x])=>{const c=cnt(x);return{k,x,c,t:c.RECH+c.ALERT+c.REPRO}}).filter(o=>o.t).sort((p,q)=>q.t-p.t||q.c.RECH-p.c.RECH).slice(0,10);const cm=Math.max(1,...cr.map(o=>o.t));
   $('#cRut').innerHTML=cr.map(o=>`<div class="hrow"><span class="nm">${esc(o.k)} <span class="note">${esc(short(o.x[0].edt))}</span></span><div style="width:${o.t/cm*100}%">${stk(o.c,['RECH','ALERT','REPRO'])}</div><span class="n">${o.t} · ${Math.round(pct(o.t,o.x.length))}%</span></div>`).join('')||'<p class="note">Sin casos.</p>';
-  renderD()}
+  renderD();if(typeof renderCloseBox==='function'&&typeof histList!=='undefined')renderCloseBox()}
 
 const detRows=()=>cur().filter(r=>r.k==='RECH'||r.k==='ALERT'||r.k==='REPRO');
 function renderD(){
@@ -395,7 +396,7 @@ const fdt=d=>d?d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',m
 const msg=t=>{$('#syncMsg').textContent=t};
 function renderSlots(){
   $('#slots').innerHTML=SL.map(([k,t,acc],i)=>{const f=info[k]||{};return `<div class="slot${i==2?' sec2':''}"><b>${t}</b><span class="stt">${f.nombre?`<i>${esc(f.nombre)}</i><br>${fmt(f.filas||0)} filas · ${fdt(f.cargado)}`:'Sin datos cargados'}</span>${busy[k]?`<span><span class="badge">${busy[k]}</span></span>`:''}${isAdmin?`<button type="button" class="${i<2?'ybtn':''}" data-up="${k}">${i<2?'Actualizar':'Actualizar si cambió'}</button><input type="file" id="f_${k}" accept="${acc}" hidden>`:''}</div>`}).join('');
-  $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);if(typeof renderHistAdmin==='function'&&$('#histAdmin'))renderHistAdmin();
+  $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);if(typeof renderHistAdmin==='function'&&$('#histAdmin')){renderHistAdmin();renderCloseBox()}
   const a=$('#auth');
   if(user)a.innerHTML=`<span class="ldn">Sesión: ${esc(user.email)}${isAdmin?' · administrador':' · sin permiso de carga'}</span><button type="button" id="btnOut">Salir</button>`;
   else if(authOpen)a.innerHTML=`<form id="fLogin" class="login"><input type="email" id="lEmail" placeholder="Correo" autocomplete="username" required aria-label="Correo"><input type="password" id="lPass" placeholder="Contraseña" autocomplete="current-password" required aria-label="Contraseña"><button type="submit" class="ybtn">Entrar</button><button type="button" id="btnCancel">Cancelar</button></form>`;
@@ -465,37 +466,85 @@ function daySummary(){
     tmProm:cl.length?+(cl.reduce((s,r)=>s+r.h,0)/cl.length).toFixed(2):null,rutas:R.length,rutasCerradas:cl.length,
     salida:R.length?new Date(Math.min(...R.map(r=>r.s))).toISOString():null,llegada:ends.length?new Date(Math.max(...ends)).toISOString():null,corte:corte?corte.toISOString():null}}
 let archiving=false;
+const dayCounts=arr=>{const m=new Map();for(const r of (arr||[])){const d=isoDay(r.tour_date);if(d)m.set(d,(m.get(d)||0)+1)}return m};
+const daysOf=arr=>{const m=dayCounts(arr);const mx=Math.max(0,...m.values());return [...m].filter(([d,n])=>n>=mx*0.2).map(([d])=>d).sort()};
+const fragsOf=arr=>{const m=dayCounts(arr);const ok=new Set(daysOf(arr));return [...m].filter(([d])=>!ok.has(d))};
+const hojaFor=(h,d)=>{const all=h||[];const x=all.filter(r=>isoDay(r.Fecha)===d);const hasF=all.some(r=>isoDay(r.Fecha));return{rows:x.length?x:all,ok:x.length>0||!hasF}};
+function summarize(src){const pv=viewDate,ph=hist;viewDate='__tmp';hist=src;build();const sm=daySummary();viewDate=pv;hist=ph;return sm}
+async function saveDays(bees,hoja,disp,names,force,sigFn){
+  const ds=daysOf(bees);if(!ds.length)throw new Error('el BEEs no tiene fecha de recorrido (tour_date)');const done=[];
+  for(const d of ds){
+    const b=bees.filter(r=>isoDay(r.tour_date)===d);const hj=hoja?hojaFor(hoja,d):{rows:null,ok:false};
+    const sig=sigFn?sigFn(d,hj.ok):'manual:'+Date.now();if(!force&&sigFn){const m=await getMeta(d);if(m&&(m.cerrado||m.sig===sig))continue}
+    const src={bees:b,hoja:hj.rows||await loadDayPart(d,'hoja')||raw.hoja,disp:disp||await loadDayPart(d,'disp')||raw.disp};
+    const parts={bees:{nombre:names.bees,rows:b}};if(hoja&&hj.ok)parts.hoja={nombre:names.hoja,rows:hj.rows};if(disp)parts.disp={nombre:names.disp,rows:disp};
+    await persistDay(d,parts,summarize(src),sig,{cerrado:!sigFn&&d<hoyL()});done.push(d)}
+  return done}
 async function archiveDay(force){
-  if(!sb||!isAdmin)return 'Inicia sesión como administrador.';if(viewDate||archiving)return 'Vuelve a "Hoy en vivo" para guardar.';if(!raw.bees||(!info.bees?.cargado&&!force))return null;
-  const f=isoDay(raw.bees[0]?.tour_date);if(!f)return 'El BEEs en vivo no tiene fecha de recorrido.';
-  const hd=isoDay(raw.hoja?.[0]?.Fecha);const hojaOk=!hd||hd===f;
-  const sig=SL.filter(([k])=>k!=='hoja'||hojaOk).map(([k])=>(info[k]?.nombre||'')+':'+(info[k]?.cargado?new Date(info[k].cargado).toISOString():'')).join('|');
-  archiving=true;try{
-    const {data:h,error:e0}=await sb.from('historico').select('sig').eq('fecha',f).maybeSingle();if(e0)throw e0;if(h?.sig===sig&&!force)return null;
-    for(const [k] of SL){if(k==='hoja'&&!hojaOk)continue;if(!raw[k])continue;const pk=trim(k,raw[k]);
-      const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:info[k]?.nombre||'',filas:pk.rows.length,cargado:info[k]?.cargado?new Date(info[k].cargado).toISOString():new Date().toISOString(),datos:pk});if(error)throw error}
-    const {error}=await sb.from('historico').upsert({fecha:f,resumen:daySummary(),sig,actualizado:new Date().toISOString()});if(error)throw error;loadHistList();return null}
-  catch(e){const m='No se pudo guardar el día en el histórico: '+(e?.message||e)+(/relation|does not exist|schema cache/i.test(e?.message||'')?' → ejecuta actualizacion_historico.sql en Supabase.':'');msg(m);return m}finally{archiving=false}}
+  if(!canWrite())return 'No tienes permiso para guardar.';if(archiving)return 'Ya se está guardando, espera un momento.';if(viewDate)return 'Vuelve a "Hoy en vivo" para guardar.';
+  if(!hasLive())return force?'Primero sube el BEEs del día en vivo.':null;
+  archiving=true;try{const n={bees:info.bees?.nombre||'',hoja:info.hoja?.nombre||'',disp:info.disp?.nombre||''};
+    const done=await saveDays(raw.bees,raw.hoja,raw.disp,n,force,(d,hojaOk)=>d+'|'+liveSig(hojaOk));
+    return force?(done.length?'Guardado: '+done.map(fdd).join(', '):'No había cambios por guardar.'):null}
+  catch(e){const m='No se pudo guardar el día: '+(e?.message||e?.code||e);if(typeof msg==='function')msg(m);return m}
+  finally{archiving=false;build()}}
 const canWrite=()=>isAdmin;
+const hasLive=()=>!!(raw.bees&&info.bees?.cargado);
+const liveSig=hojaOk=>SL.filter(([k])=>k!=='hoja'||hojaOk).map(([k])=>(info[k]?.nombre||'')+':'+(info[k]?.cargado?new Date(info[k].cargado).toISOString():'')).join('|');
+async function getMeta(d){const {data,error}=await sb.from('historico').select('sig,resumen').eq('fecha',d).maybeSingle();if(error)throw error;return data?{sig:data.sig,cerrado:!!data.resumen?.cerrado}:null}
+async function deleteDay(f){let r=await sb.from('historico').delete().eq('fecha',f);if(r.error)throw r.error;r=await sb.from('dias').delete().eq('fecha',f);if(r.error)throw r.error;await loadHistList()}
 async function loadDayPart(f,k){if(!sb)return null;const {data}=await sb.from('dias').select('datos').eq('fecha',f).eq('tipo',k).maybeSingle();return data?toObjs(data.datos):null}
-async function persistDay(f,parts,sm){
-  for(const k of Object.keys(parts)){const pk=trim(k,parts[k].rows);const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:parts[k].nombre,filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});if(error)throw error}
-  const {error}=await sb.from('historico').upsert({fecha:f,resumen:sm,sig:'manual:'+Date.now(),actualizado:new Date().toISOString()});if(error)throw error;await loadHistList()}
+async function persistDay(f,parts,sm,sig,extra){
+  for(const k of Object.keys(parts)){const pk=trim(k,parts[k].rows);const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:parts[k].nombre||'',filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});if(error)throw new Error(error.message+(/relation|does not exist|schema cache/i.test(error.message)?' → ejecuta actualizacion_historico.sql en Supabase':''))}
+  const {error}=await sb.from('historico').upsert({fecha:f,resumen:{...sm,...(extra||{})},sig:sig||'manual:'+Date.now(),actualizado:new Date().toISOString()});if(error)throw error;await loadHistList()}
 async function loadHistList(){
   if(!sb)return;const {data,error}=await sb.from('historico').select('fecha,resumen,actualizado').order('fecha',{ascending:false}).limit(60);
   if(error){$('#tH').innerHTML='<tbody><tr><td class="note">No se pudo leer el histórico: '+esc(error.message)+'. Si dice que la tabla no existe, ejecuta actualizacion_historico.sql en Supabase.</td></tr></tbody>';return}
   histList=(data||[]).map(h=>({fecha:h.fecha,...h.resumen,actualizado:h.actualizado}));renderHist()}
 const fdtH=v=>v?new Date(v).toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 function renderHist(){
-  renderHistAdmin();
-  const hoy=hoyL();const L=histList.map(h=>{const x={...h};if(x.fecha<hoy&&x.ALERT){x.RECH+=x.ALERT;x.cierre=(x.cierre||0)+x.ALERT;x.ALERT=0}return x});
-  $('#fDia').innerHTML=`<option value="">Hoy · en vivo</option>`+L.map(h=>`<option value="${h.fecha}"${h.fecha===viewDate?' selected':''}>${h.fecha.split('-').reverse().join('/')}</option>`).join('');
-  if(!L.length){$('#tH').innerHTML='<tbody><tr><td class="note">Aún no hay días guardados. Se guardan solos cuando el administrador carga el archivo de BEEs.</td></tr></tbody>';$('#hMr').innerHTML='';$('#hTm').innerHTML='';return}
+  renderHistAdmin();renderCloseBox();
+  const hoy=hoyL();const L=histList.map(h=>{const x={...h};if((x.fecha<hoy||x.cerrado)&&x.ALERT){x.RECH+=x.ALERT;x.cierre=(x.cierre||0)+x.ALERT;x.ALERT=0}return x});
+  const lds=raw.bees?daysOf(raw.bees):[];const curLive=lds.includes(liveDate)?liveDate:lds[lds.length-1];const cs=closedSet();
+  const savedOnly=L.filter(h=>!lds.includes(h.fecha));
+  $('#fDia').innerHTML=(lds.length?[...lds].reverse().map(d=>`<option value="live:${d}"${!viewDate&&d===curLive?' selected':''}>${fdd(d)} · ${cs.has(d)?'cerrado (archivo actual)':'en vivo'}</option>`).join(''):`<option value="">Hoy · en vivo</option>`)
+    +savedOnly.map(h=>`<option value="${h.fecha}"${h.fecha===viewDate?' selected':''}>${fdd(h.fecha)}${h.cerrado?' · cerrado':' · guardado'}</option>`).join('');
+  if(!L.length){$('#tH').innerHTML='<tbody><tr><td class="note">Aún no hay días guardados. Usa "Cerrar día" en la barra lateral cuando termine la operación, o "Agregar o corregir días".</td></tr></tbody>';$('#hMr').innerHTML='';$('#hTm').innerHTML='';return}
   const asc=[...L].sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(-14);const dm=f=>f.slice(8)+'/'+f.slice(5,7);
   $('#hMr').innerHTML=vcols(asc.map(h=>({name:dm(h.fecha),v:pct(h.RECH+h.ALERT,h.n),lab:pct(h.RECH+h.ALERT,h.n)+'%',tip:`${dm(h.fecha)}: ${h.RECH+h.ALERT} MR de ${h.n} pedidos`})));
   $('#hTm').innerHTML=vcols(asc.map(h=>({name:dm(h.fecha),v:h.tmProm||0,lab:h.tmProm!=null?h.tmProm.toFixed(2):'—',tip:`${dm(h.fecha)}: TM ${hm(h.tmProm)} en ${h.rutasCerradas||0} rutas cerradas`})),st.meta);
-  $('#tH').innerHTML='<thead><tr><th>Fecha</th><th class="r">Pedidos</th><th class="r">% entrega</th><th class="r">% avance</th><th class="r">% MR</th><th class="r">Rechazos</th><th class="r">Cierre 23:59</th><th class="r">Alertados</th><th class="r">TM prom.</th><th class="r">Rutas</th><th>Guardado</th></tr></thead><tbody>'+
-    L.map(h=>`<tr data-dia="${h.fecha}" class="${h.fecha===viewDate?'on':''}"><td>${h.fecha.split('-').reverse().join('/')}${h.fecha===hoy?' <span class="note">hoy</span>':''}</td><td class="r">${fmt(h.n)}</td><td class="r">${pct(h.ENT,h.n)}%</td><td class="r">${pct(h.ENT+h.RECH,h.n)}%</td><td class="r">${pct(h.RECH+h.ALERT,h.n)}%</td><td class="r">${h.RECH}</td><td class="r">${h.cierre||0}</td><td class="r">${h.ALERT}</td><td class="r">${hm(h.tmProm)}</td><td class="r">${h.rutas}</td><td class="note">${fdtH(h.actualizado)}</td></tr>`).join('')+'</tbody>'}
+  const w=canWrite();
+  $('#tH').innerHTML='<thead><tr><th>Fecha</th><th>Estado</th><th class="r">Pedidos</th><th class="r">% entrega</th><th class="r">% avance</th><th class="r">% MR</th><th class="r">Rechazos</th><th class="r">Cierre 23:59</th><th class="r">Alertados</th><th class="r">TM prom.</th><th class="r">Rutas</th><th>Guardado</th>'+(w?'<th></th>':'')+'</tr></thead><tbody>'+
+    L.map(h=>`<tr data-dia="${h.fecha}" class="${h.fecha===viewDate?'on':''}"><td>${fdd(h.fecha)}</td><td>${h.cerrado?'<b>Cerrado</b>':h.fecha<hoy?'Guardado':'Abierto'}</td><td class="r">${fmt(h.n)}</td><td class="r">${pct(h.ENT,h.n)}%</td><td class="r">${pct(h.ENT+h.RECH,h.n)}%</td><td class="r">${pct(h.RECH+h.ALERT,h.n)}%</td><td class="r">${h.RECH}</td><td class="r">${h.cierre||0}</td><td class="r">${h.ALERT}</td><td class="r">${hm(h.tmProm)}</td><td class="r">${h.rutas}</td><td class="note">${fdtH(h.cerradoEn||h.actualizado)}</td>${w?`<td>${delAsk===h.fecha?`<span class="note">¿Eliminar?</span> <button type="button" data-delok="${h.fecha}" style="min-height:32px">Sí</button> <button type="button" data-delno="1" style="min-height:32px">No</button>`:`<button type="button" data-del="${h.fecha}" style="min-height:32px">Eliminar</button>`}</td>`:''}</tr>`).join('')+'</tbody>'}
+let delAsk=null,closeAsk=false,closeMsg='';
+const pendingClose=new Set();
+const closedSet=()=>{const s=new Set(pendingClose);for(const h of histList)if(h.cerrado)s.add(h.fecha);return s};
+function renderCloseBox(){
+  const el=$('#closeBox');if(!el)return;if(!canWrite()||!raw.bees){el.innerHTML='';return}
+  const lds=daysOf(raw.bees);const d=lds.includes(liveDate)?liveDate:lds[lds.length-1];if(!d){el.innerHTML='';return}
+  const h=histList.find(x=>x.fecha===d);const closed=closedSet().has(d);
+  el.innerHTML=`<div class="closebox">${closed?`<span class="ldn"><b style="color:#fff">✓ Día ${fdd(d)} cerrado</b>${h?.cerradoEn?' a las '+tm(new Date(h.cerradoEn)):''}. Sus alertados quedaron como rechazo 23:59. Para el día siguiente, sube los archivos nuevos.</span><button type="button" id="btnClose">Actualizar cierre del ${fdd(d)}</button>`
+    :closeAsk?`<span class="ldn">¿Cerrar el día <b style="color:#fff">${fdd(d)}</b>? Los alertados pendientes pasan a rechazo 23:59 y el día queda guardado en el histórico.</span><button type="button" class="ybtn" id="btnCloseOk">Sí, cerrar día</button><button type="button" id="btnCloseNo">Cancelar</button>`
+    :`<button type="button" class="closebtn" id="btnClose">Cerrar día ${fdd(d)}</button>`}${closeMsg?`<span class="ldn">${esc(closeMsg)}</span>`:''}</div>`}
+async function closeDay(){
+  const lds=daysOf(raw.bees);const d=lds.includes(liveDate)?liveDate:lds[lds.length-1];if(!d||archiving)return;
+  archiving=true;closeMsg='Cerrando el día…';closeAsk=false;renderCloseBox();
+  try{pendingClose.add(d);const b=raw.bees.filter(r=>isoDay(r.tour_date)===d);const hj=hojaFor(raw.hoja,d);
+    const parts={bees:{nombre:info.bees?.nombre||'',rows:b},disp:{nombre:info.disp?.nombre||'',rows:raw.disp}};if(hj.ok)parts.hoja={nombre:info.hoja?.nombre||'',rows:hj.rows};
+    const sm=summarize({bees:b,hoja:hj.rows,disp:raw.disp});
+    await persistDay(d,parts,sm,'cerrado:'+Date.now(),{cerrado:true,cerradoEn:new Date().toISOString()});
+    closeMsg=`Día ${fdd(d)} cerrado y guardado sin duplicados.`}
+  catch(e){pendingClose.delete(d);closeMsg='No se pudo cerrar: '+(e?.message||e?.code||e)}
+  finally{archiving=false;build();renderHist()}}
+document.addEventListener('click',async e=>{
+  const id=e.target.id;
+  if(id==='btnClose'){closeAsk=true;closeMsg='';renderCloseBox()}
+  else if(id==='btnCloseNo'){closeAsk=false;renderCloseBox()}
+  else if(id==='btnCloseOk'){closeDay()}
+  const del=e.target.closest('[data-del]');if(del){delAsk=del.dataset.del;renderHist();return}
+  if(e.target.closest('[data-delno]')){delAsk=null;renderHist();return}
+  const ok=e.target.closest('[data-delok]');if(ok){const f=ok.dataset.delok;delAsk=null;try{await deleteDay(f);pendingClose.delete(f);if(viewDate===f)showDay('');hmsg='Día '+fdd(f)+' eliminado del histórico.'}catch(err){hmsg='No se pudo eliminar: '+(err?.message||err)}renderHist()}});
+
 async function showDay(f){
   if(!f){viewDate=null;hist={};$('#viewBanner').hidden=true;aiSum=null;build();loadIA();renderHist();return}
   if(!sb)return;$('#viewBanner').hidden=false;$('#viewBanner').textContent='Cargando el '+f.split('-').reverse().join('/')+'…';
@@ -505,8 +554,8 @@ async function showDay(f){
   out.hoja=out.hoja||raw.hoja;out.disp=out.disp||raw.disp;hist=out;viewDate=f;aiSum=null;
   $('#viewBanner').innerHTML=`Viendo el día guardado ${f.split('-').reverse().join('/')}. <button type="button" id="btnLive" style="min-height:32px;margin-left:8px">Volver a hoy en vivo</button>`;
   build();loadIA();renderHist()}
-$('#fDia').addEventListener('change',e=>showDay(e.target.value));
-document.addEventListener('click',e=>{if(e.target.id==='btnLive')showDay('');const tr=e.target.closest('#tH tr[data-dia]');if(tr){showDay(tr.dataset.dia);document.getElementById('ejecutivo').scrollIntoView()}});
+$('#fDia').addEventListener('change',e=>{const v=e.target.value;if(v.startsWith('live:')){liveDate=v.slice(5);showDay('')}else showDay(v)});
+document.addEventListener('click',e=>{if(e.target.id==='btnLive')showDay('');const tr=!e.target.closest('button')&&e.target.closest('#tH tr[data-dia]');if(tr){showDay(tr.dataset.dia);document.getElementById('ejecutivo').scrollIntoView()}});
 
 // ---------- Agregar / corregir un día del histórico ----------
 const hp={};let hmsg='';
@@ -519,28 +568,27 @@ async function parseFile(f,k){
   return toObjs(trim(k,found[1]))}
 function renderHistAdmin(){
   const el=$('#histAdmin');if(!el)return;if(!canWrite()){el.innerHTML='';return}
-  el.innerHTML=`<div class="hadd"><b>Agregar o corregir un día</b><span class="note">Sube el BEEs de ese día y, si los tienes, su Hoja de Ruta y Disponibilidad. Se guarda con la fecha del recorrido y no cambia la vista en vivo.</span>
-  <div class="tools">${[['bees','1. BEEs del día','.csv,.xlsx',1],['hoja','2. Hoja de ruta (opcional)','.xlsx,.xls,.csv'],['disp','3. Disponibilidad (opcional)','.xlsx,.xls']].map(([k,t,acc,y])=>`<button type="button" class="${y?'ybtn':''}" data-hup="${k}">${hp[k]?'✓ '+esc(hp[k].nombre):t}</button><input type="file" id="h_${k}" accept="${acc}" hidden>`).join('')}
-  <button type="button" class="ybtn" id="btnSaveDay"${hp.bees?'':' disabled'}>Guardar día${hp.fecha?' '+fdd(hp.fecha):''}</button>
+  const ds=hp.bees?daysOf(hp.bees.rows):[];
+  el.innerHTML=`<div class="hadd"><b>Agregar o corregir días</b><span class="note">Sube el BEEs (puede traer uno o varios días) y, si los tienes, la Hoja de Ruta y la Disponibilidad. Cada fecha de recorrido se guarda como un día separado, sin cambiar la vista en vivo.</span>
+  <div class="tools">${[['bees','1. BEEs','.csv,.xlsx',1],['hoja','2. Hoja de ruta (opcional)','.xlsx,.xls,.csv'],['disp','3. Disponibilidad (opcional)','.xlsx,.xls']].map(([k,t,acc,y])=>`<button type="button" class="${y?'ybtn':''}" data-hup="${k}">${hp[k]?'✓ '+esc(hp[k].nombre):t}</button><input type="file" id="h_${k}" accept="${acc}" hidden>`).join('')}
+  <button type="button" class="ybtn" id="btnSaveDay"${hp.bees?'':' disabled'}>${ds.length>1?`Guardar ${ds.length} días`:'Guardar día'+(ds[0]?' '+fdd(ds[0]):'')}</button>
   <button type="button" id="btnSaveLive">Guardar ahora el día en vivo</button></div><p class="note" id="histMsg" role="status">${esc(hmsg)}</p></div>`}
 $('#historico').addEventListener('click',async e=>{
   const b=e.target.closest('[data-hup]');if(b){document.getElementById('h_'+b.dataset.hup).click();return}
-  if(e.target.id==='btnSaveLive'){hmsg='Guardando el día en vivo…';renderHistAdmin();const r=await archiveDay(true);hmsg=r||'Día en vivo guardado en el histórico.';renderHistAdmin();return}
+  if(e.target.id==='btnSaveLive'){hmsg='Guardando…';renderHistAdmin();const r=await archiveDay(true);hmsg=r||'Listo.';renderHistAdmin();return}
   if(e.target.id==='btnSaveDay'&&hp.bees){
-    const f=hp.fecha;hmsg='Guardando el '+fdd(f)+'…';renderHistAdmin();
-    try{const out={bees:hp.bees.rows,hoja:hp.hoja?.rows||await loadDayPart(f,'hoja')||raw.hoja,disp:hp.disp?.rows||await loadDayPart(f,'disp')||raw.disp};
-      hist=out;viewDate=f;aiSum=null;build();const sm=daySummary();
-      const parts={bees:hp.bees};if(hp.hoja)parts.hoja=hp.hoja;if(hp.disp)parts.disp=hp.disp;
-      await persistDay(f,parts,sm);
-      $('#viewBanner').hidden=false;$('#viewBanner').innerHTML=`Viendo el día guardado ${fdd(f)}. <button type="button" id="btnLive" style="min-height:32px;margin-left:8px">Volver a hoy en vivo</button>`;
-      for(const k of ['bees','hoja','disp'])delete hp[k];delete hp.fecha;hmsg=`Día ${fdd(f)} guardado en el histórico.`;renderHist()}
-    catch(err){hmsg='No se pudo guardar: '+(err?.message||err);renderHistAdmin()}}});
+    if(archiving)return;archiving=true;hmsg='Guardando…';renderHistAdmin();
+    try{const done=await saveDays(hp.bees.rows,hp.hoja?.rows||null,hp.disp?.rows||null,{bees:hp.bees.nombre,hoja:hp.hoja?.nombre||'',disp:hp.disp?.nombre||''},true,null);
+      for(const k of ['bees','hoja','disp'])delete hp[k];hmsg='Guardado en el histórico: '+done.map(fdd).join(', ')+'.';
+      archiving=false;await showDay(done[done.length-1])}
+    catch(err){hmsg='No se pudo guardar: '+(err?.message||err)}
+    finally{archiving=false;renderHist()}}});
 $('#historico').addEventListener('change',async e=>{
   const inp=e.target;if(!inp.id?.startsWith('h_')||!inp.files?.length)return;const k=inp.id.slice(2);const f=inp.files[0];
   try{hmsg='Leyendo '+f.name+'…';renderHistAdmin();const rws=await parseFile(f,k);hp[k]={nombre:f.name,rows:rws};
-    if(k==='bees'){hp.fecha=isoDay(rws[0]?.tour_date);if(!hp.fecha)throw new Error('no se encontró la fecha del recorrido (tour_date)')}
-    if(k==='hoja'&&hp.fecha){const hd=isoDay(rws[0]?.Fecha);hmsg=hd&&hd!==hp.fecha?`Ojo: la Hoja de Ruta es del ${fdd(hd)} y el BEEs del ${fdd(hp.fecha)}.`:'';}else hmsg='';
-    if(!hmsg)hmsg=hp.bees?`Listo para guardar el ${fdd(hp.fecha)}.`:'Ahora sube el BEEs del día.'}
+    const ds=hp.bees?daysOf(hp.bees.rows):[];if(k==='bees'&&!ds.length)throw new Error('no se encontró la fecha del recorrido (tour_date)');
+    hmsg=hp.bees?`Listo para guardar: ${ds.map(fdd).join(', ')}.`+(fragsOf(hp.bees.rows).length?` Se ignoran ${fragsOf(hp.bees.rows).map(([d,n])=>n+' pedidos del '+fdd(d)).join(', ')} (viajes de otro día que ya tiene su propio archivo).`:''):'Ahora sube el BEEs.';
+    if(hp.hoja&&ds.length){const hd=[...new Set(hp.hoja.rows.map(r=>isoDay(r.Fecha)).filter(Boolean))];const sin=ds.filter(d=>hd.length&&!hd.includes(d));if(sin.length)hmsg+=` Ojo: la Hoja de Ruta no trae ${sin.map(fdd).join(', ')}; para esos días se usará la que ya esté guardada.`}}
   catch(err){delete hp[k];hmsg='Error: '+(err?.message||err)}
   inp.value='';renderHistAdmin()});
 
