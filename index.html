@@ -90,7 +90,7 @@ table{border-collapse:collapse;width:100%}
 th{font-size:12px;font-weight:700;color:#fff;background:#3a3a3a;text-align:left;padding:7px 9px;white-space:nowrap}
 td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
 td.r,th.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-tr.edt td{background:#fff6cf;font-weight:700}
+#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
 td.bar{width:30%;min-width:150px;vertical-align:middle}
 .hi{color:#c62828;font-weight:700}.hi::before{content:'▲ ';font-size:10px}
 .note{font-size:12px;color:var(--muted)}
@@ -123,6 +123,7 @@ pre,.scroll{overflow-x:auto}
     <a href="#mr">MR y supervisores</a>
     <a href="#criticas">Rutas críticas</a>
     <a href="#detalle">Detalle de rechazos</a>
+    <a href="#historico">Histórico diario</a>
   </nav>
   <div class="ld"><b class="ldh">Actualización de datos</b><span class="ldn">Solo el administrador sube archivos: BEEs y Hoja de Ruta varias veces al día, la Disponibilidad solo si cambia. Todos ven la última carga al instante.</span>
     <div class="slots" id="slots"></div><p class="ldn" id="syncMsg" role="status"></p><div id="auth" class="auth"></div></div>
@@ -130,11 +131,13 @@ pre,.scroll{overflow-x:auto}
 <main>
   <div class="strip" id="strip"></div>
   <div><p class="sub" id="metaTxt">Cargando datos…</p><h1 id="headline">Seguimiento de ruta</h1></div>
+  <div class="viewing" id="viewBanner" hidden></div>
   <div class="tiles" id="kpis"></div>
   <div class="flt" role="group" aria-label="Filtros">
     <label><span>Empresario</span><select id="fEdt"></select></label>
     <label><span>Contrato</span><select id="fCon"></select></label>
     <label><span>Ruta</span><select id="fRut"></select></label>
+    <label><span>Día</span><select id="fDia"><option value="">Hoy · en vivo</option></select></label>
     <label class="tg"><input type="checkbox" id="fCan" checked> Excluir tours cancelados</label>
   </div>
 
@@ -172,6 +175,14 @@ pre,.scroll{overflow-x:auto}
     <div class="legend"><span><i class="dot" style="background:var(--rech)"></i>Rechazo</span><span><i class="dot" style="background:var(--alert)"></i>Alertado</span><span><i class="dot" style="background:var(--repro)"></i>Reprogramado</span><span>Valor: casos · % de los clientes de la ruta</span></div>
     <div id="cRut" class="cols2"></div></div></section>
 
+  <section class="sect" id="historico">
+    <div class="card"><h2>Histórico diario</h2><div class="cb">
+      <p class="lead">Cada día se guarda solo con la última carga de BEEs de esa fecha. Al pasar el día, sus alertados se cuentan como rechazo por cierre 23:59. Haz clic en un día para verlo completo.</p>
+      <div class="g2"><div><b style="font-size:14px">% MR por día</b><div id="hMr"></div></div><div><b style="font-size:14px">Tiempo de mercado por día vs meta</b><div class="legend"><span><i class="dot" style="background:var(--ent)"></i>TM promedio (h)</span><span><i class="dot" style="background:var(--meta)"></i>Meta TM</span></div><div id="hTm"></div></div></div>
+      <div class="scroll" style="margin-top:14px"><table id="tH"></table></div>
+    </div></div>
+  </section>
+
   <section class="card" id="detalle"><h2>Detalle de rechazos</h2><div class="cb">
     <p class="lead">Comentario = retroalimentación del modulador (Hoja de Ruta). Observación = motivo de modulación o reprogramación y GPS (BEEs). Patrón IA = lectura de Claude sobre cada caso.</p>
     <div class="pat" id="aiSum"></div>
@@ -186,7 +197,7 @@ pre,.scroll{overflow-x:auto}
     <details><summary>Lógica usada (igual que tu Power Query)</summary>
       <ul class="note">
         <li><b>AVANCE RUTA</b>: NOT_STARTED, DELIVERY_STARTED, ON_THE_WAY y RESCHEDULED = EN RUTA; WAITING_MODULATION = ALERTADO; PARTIAL_DELIVERY, DEFINITELY_RETURNED e IN_TREATMENT = RECHAZO; el resto = ENTREGADO.</li>
-        <li><b>MR</b> = motivo de la Hoja de Ruta (cruce por código de cliente); si falta, NEN-RECHAZO NO ALERTADO. <b>MR FINAL</b>: "Rechazo no alertado", "Coordinación anticipada" y "Cliente nos hace esperar" toman el motivo de modulación de BEEs; "Pedido modificado" pasa a "Error carga"; se quita NEN-.</li>
+        <li><b>Histórico diario</b>: cada vez que el administrador carga BEEs, el día (según la fecha del recorrido) se guarda con sus tres archivos y un resumen. Al día siguiente, la página trabaja con los archivos nuevos y los días anteriores se consultan en el selector Día o en la sección Histórico.</li><li><b>Cierre de ruta</b>: cuando todos los viajes de la placa terminan (o el tour pasa a CONCLUDED/POST_ROUTE), o cuando pasa el día (23:59), los pedidos que siguen ALERTADOS pasan a RECHAZO con hora de cierre 23:59, y su motivo queda en la observación.</li><li><b>MR</b> = motivo de la Hoja de Ruta (cruce por código de cliente); si falta, NEN-RECHAZO NO ALERTADO. <b>MR FINAL</b>: "Rechazo no alertado", "Coordinación anticipada" y "Cliente nos hace esperar" toman el motivo de modulación de BEEs; "Pedido modificado" pasa a "Error carga"; se quita NEN-.</li>
         <li><b>EDT, Ruta SAP y Contrato</b>: cruce de la placa sin "PE" con Disponibilidad; sin cruce, el EDT es DSURIM SRL.</li>
         <li><b>% entrega</b> = entregados / pedidos. <b>% avance</b> = (entregados + rechazos) / pedidos. <b>% MR</b> = (rechazos + alertados) / pedidos.</li>
         <li><b>Tiempo de mercado</b> = de la primera salida a la última llegada de la placa en el día (todos sus viajes). En rutas que siguen en curso se mide hasta el corte. Prom., máx. y mín. usan solo rutas cerradas y descartan viajes de menos de 15 minutos. <b>SIF</b> = tipo de contrato SIF en Disponibilidad.</li>
@@ -206,7 +217,7 @@ const pct=(a,b)=>b?Math.round(a*1000/b)/10:0;
 const MAP={NOT_STARTED:'EN RUTA',WAITING_MODULATION:'ALERTADO',DELIVERY_STARTED:'EN RUTA',PARTIAL_DELIVERY:'RECHAZO',RESCHEDULED:'EN RUTA',ON_THE_WAY:'EN RUTA',DEFINITELY_RETURNED:'RECHAZO',IN_TREATMENT:'RECHAZO'};
 const COL={ENT:'var(--ent)',RECH:'var(--rech)',ALERT:'var(--alert)',REPRO:'var(--repro)',RUTA:'var(--ruta)'};
 const NAME={ENT:'Entregado',RECH:'Rechazo',ALERT:'Alertado',REPRO:'Reprogramado',RUTA:'En ruta'};
-let raw={bees:null,hoja:null,disp:null},files={},rows=[],corte=null,dispRows=[],ai={},aiSum=null,tipo='TODOS';
+let viewDate=null,hist={},histList=[];let raw={bees:null,hoja:null,disp:null},files={},rows=[],corte=null,dispRows=[],ai={},aiSum=null,tipo='TODOS';
 const st={edt:'',con:'',rut:'',can:true,meta:10.5};
 const toObjs=p=>p.rows.map(r=>Object.fromEntries(p.cols.map((c,i)=>[c,r[i]])));
 const code=v=>String(v??'').trim().replace(/\.0+$/,'');
@@ -220,13 +231,13 @@ function group(a,f){const m=new Map();for(const r of a){const k=f(r);if(!m.has(k
 const opts=(el,list,val,all)=>{el.innerHTML=`<option value="">${all}</option>`+list.map(v=>`<option value="${esc(v[0])}"${v[0]===val?' selected':''}>${esc(v[1])}</option>`).join('')};
 
 function build(){
-  if(!raw.bees||!raw.hoja||!raw.disp)return;
+  const S=viewDate?hist:raw;if(!S.bees||!S.hoja||!S.disp)return;
   const D=[],sr=new Set(),sp=new Set();
-  for(const d of raw.disp){if(String(d.CAPAC||'').trim()==='SIN PLACA')continue;const r=up(d['RUTA SAP']);if(sr.has(r))continue;sr.add(r);D.push(d)}
+  for(const d of S.disp){if(String(d.CAPAC||'').trim()==='SIN PLACA')continue;const r=up(d['RUTA SAP']);if(sr.has(r))continue;sr.add(r);D.push(d)}
   const disp=new Map();dispRows=[];for(const d of D){const p=up(d.placa);if(sp.has(p))continue;sp.add(p);disp.set(p,d);dispRows.push(d)}
-  const hoja=new Map();for(const h of raw.hoja){const c=code(h.Codigo);if(c&&!hoja.has(c))hoja.set(c,h)}
+  const hoja=new Map();for(const h of S.hoja){const c=code(h.Codigo);if(c&&!hoja.has(c))hoja.set(c,h)}
   corte=null;rows=[];
-  for(const b of raw.bees){
+  for(const b of S.bees){
     const c=code(b.poc_external_id);if(!c)continue;
     const placa=up(b.truck_license_plate).split('PE').join('');
     const av=MAP[b.status]||'ENTREGADO';const h=hoja.get(c)||{};const d=disp.get(placa)||{};
@@ -243,6 +254,10 @@ function build(){
       start:pd(b.trip_start_timestamp),end:pd(b.trip_end_timestamp),fin:pd(b.finished_at),date:b.tour_date||''};
     for(const t of [r.fin,pd(b.arrived_at),r.end])if(t&&(!corte||t>corte))corte=t;
     rows.push(r)}
+  // Cierre de ruta: alertados pendientes pasan a rechazo a las 23:59 con el motivo como observación
+  const hoy=new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'});
+  const cerr=new Map();for(const [p,x] of group(rows.filter(r=>r.tourSt!=='CANCELLED'),r=>r.placa))cerr.set(p,x.every(r=>r.end||r.tourSt==='CONCLUDED'||r.tourSt==='POST_ROUTE'));
+  for(const r of rows)if(r.k==='ALERT'&&(cerr.get(r.placa)||(r.date&&r.date<hoy))){r.k='RECH';r.av='RECHAZO';r.cierre=true;r.obs='Cierre de ruta 23:59 · rechazo por '+r.motivo.charAt(0)+r.motivo.slice(1).toLowerCase()+(r.obs?' · '+r.obs:'')}
   opts($('#fEdt'),[...new Set(rows.map(r=>r.edt))].sort().map(e=>[e,short(e)]),st.edt,'Todos');
   opts($('#fCon'),[...new Set(rows.map(r=>r.con))].sort().map(e=>[e,e]),st.con,'Todos');
   opts($('#fRut'),[...new Set(rows.map(r=>r.ruta))].sort().map(e=>[e,e]),st.rut,'Todas');
@@ -286,12 +301,12 @@ function render(){
   $('#strip').innerHTML=[[tms(first),'Hora primera salida'],[tms(last),'Hora última llegada'],[R.length,'# Transportes'],[tv.length?(tv.reduce((s,t)=>s+t.h,0)/tv.length).toFixed(2):'—','Horas promedio por viaje'],[over14||'--','Rutas > 14h'],[pct(sif,R.length)+' %','% Rutas SIF']].map(([v,l])=>`<div><b class="num">${v}</b><span>${l}</span></div>`).join('');
   $('#headline').textContent=`${pct(done,n)}% de avance y ${cdMr}% de MR (${mr} pedidos) al corte de las ${tm(corte)}`;
   $('#metaTxt').textContent=`CD Cono Norte · ${rows[0]?.date||''} · `+SL.map(([k,t])=>`${t.split(' (')[0]}: ${info[k]?.cargado?fdt(info[k].cargado):'—'}`).join(' · ');renderSlots();
-  const K=[['% avance',pct(done,n)+'%',`${fmt(done)} de ${fmt(n)} clientes`],['% entrega',pct(c.ENT,n)+'%',`${fmt(c.ENT)} entregados`],['% MR',cdMr+'%',`${mr} pedidos con MR`],['Rechazos',fmt(c.RECH),'entrega parcial'],['Alertados',fmt(c.ALERT),'en modulación'],['Reprogramados',fmt(c.REPRO),'cuentan como en ruta'],['Velocidad',vel.toFixed(1),'clientes/h por ruta'],['Fin proyectado',lastEta?tm(lastEta):'—',late?`${late} ruta(s) pasarían 23:59`:'última ruta']];
+  const K=[['% avance',pct(done,n)+'%',`${fmt(done)} de ${fmt(n)} clientes`],['% entrega',pct(c.ENT,n)+'%',`${fmt(c.ENT)} entregados`],['% MR',cdMr+'%',`${mr} pedidos con MR`],['Rechazos',fmt(c.RECH),(cz=>cz?`${c.RECH-cz} parciales · ${cz} cierre 23:59`:'entrega parcial')(a.filter(r=>r.cierre).length)],['Alertados',fmt(c.ALERT),'pendientes en ruta abierta'],['Reprogramados',fmt(c.REPRO),'cuentan como en ruta'],['Velocidad',vel.toFixed(1),'clientes/h por ruta'],['Fin proyectado',lastEta?tm(lastEta):'—',late?`${late} ruta(s) pasarían 23:59`:'última ruta']];
   $('#kpis').innerHTML=K.map(([l,v,s])=>`<div class="tile"><span class="l">${l}</span><span class="num">${v}</span><small>${s}</small></div>`).join('');
   // ejecutivo
   $('#dAv').innerHTML=donut([['Entregado',c.ENT,COL.ENT],['Alertado',c.ALERT,COL.ALERT],['En ruta',c.RUTA+c.REPRO,COL.RUTA],['Rechazo',c.RECH,COL.RECH]],pct(c.ENT,n)+'%','entregado');
   const al=a.filter(r=>r.alerta),ac=cnt(al);
-  $('#dAl').innerHTML=al.length?donut([['Entregado tras alerta',ac.ENT,COL.ENT],['Rechazo parcial',ac.RECH,COL.RECH],['En modulación',ac.ALERT,COL.ALERT],['Reprogramado',ac.REPRO,COL.REPRO],['Aún en ruta',ac.RUTA,COL.RUTA]],pct(ac.ENT+ac.RECH,al.length)+'%','alertas cerradas'):'<p class="note">Sin alertas en la Hoja de Ruta.</p>';
+  $('#dAl').innerHTML=al.length?donut([['Entregado tras alerta',ac.ENT,COL.ENT],['Rechazo parcial',ac.RECH-al.filter(r=>r.cierre).length,COL.RECH],['Rechazo por cierre 23:59',al.filter(r=>r.cierre).length,'var(--meta)'],['En modulación',ac.ALERT,COL.ALERT],['Reprogramado',ac.REPRO,COL.REPRO],['Aún en ruta',ac.RUTA,COL.RUTA]],pct(ac.ENT+ac.RECH,al.length)+'%','alertas cerradas'):'<p class="note">Sin alertas en la Hoja de Ruta.</p>';
   const byE=group(a,r=>r.edt);
   const ee=[...byE].map(([e,x])=>{const k=cnt(x);return{name:short(e),v:pct(k.ENT,x.length),lab:pct(k.ENT,x.length)+'%',tip:`${short(e)}: ${k.ENT} de ${x.length} entregados`}}).sort((p,q)=>q.v-p.v);
   $('#cEdt').innerHTML=vcols(ee);
@@ -339,7 +354,7 @@ function renderD(){
   const q=$('#q').value.trim().toLowerCase();
   const a=all.filter(r=>(tipo==='TODOS'||r.k===tipo)&&(!q||[r.cliente,r.code,r.ruta,r.sup,r.coment,r.obs,r.motivo,r.edt,ai[r.code]?.patron].join(' ').toLowerCase().includes(q))).sort((x,y)=>x.ruta.localeCompare(y.ruta)||x.k.localeCompare(y.k));
   $('#cnt').textContent=`${a.length} casos`;
-  $('#tD').innerHTML='<thead><tr><th>Ruta</th><th>Supervisor</th><th>Cliente</th><th>Estado</th><th>Motivo</th><th>Comentario</th><th>Observación BEEs</th><th>Validó</th><th>Patrón IA</th></tr></thead><tbody>'+a.map(r=>{const p=ai[r.code];return `<tr><td>${esc(r.ruta)}<br><span class="note">${esc(short(r.edt))}</span></td><td>${esc(r.sup)}</td><td>${esc(r.cliente)}<br><span class="note">${esc(r.code)} · ${esc(r.canal)} · ${esc(r.pago)}${r.monto&&!isNaN(parseFloat(String(r.monto).replace(/,/g,'')))?' · S/ '+esc(parseFloat(String(r.monto).replace(/,/g,'')).toFixed(2)):''}</span></td><td><span class="st"><i class="dot" style="background:${COL[r.k]}"></i>${r.status==='PARTIAL_DELIVERY'?'Rechazo parcial':NAME[r.k]}</span></td><td>${esc(r.motivo)}</td><td class="cm">${esc(r.coment)}</td><td class="cm">${esc(r.obs)}</td><td>${esc(r.valid)}${r.hAlert?'<br><span class="note">'+esc(r.hAlert)+'</span>':''}</td><td class="ai">${p?`${esc(p.patron)}${p.origen?`<br><span class="tag">${esc(p.origen)}</span>`:''}`:'<span class="note">—</span>'}</td></tr>`}).join('')+'</tbody>';
+  $('#tD').innerHTML='<thead><tr><th>Ruta</th><th>Supervisor</th><th>Cliente</th><th>Estado</th><th>Motivo</th><th>Comentario</th><th>Observación BEEs</th><th>Validó</th><th>Patrón IA</th></tr></thead><tbody>'+a.map(r=>{const p=ai[r.code];return `<tr><td>${esc(r.ruta)}<br><span class="note">${esc(short(r.edt))}</span></td><td>${esc(r.sup)}</td><td>${esc(r.cliente)}<br><span class="note">${esc(r.code)} · ${esc(r.canal)} · ${esc(r.pago)}${r.monto&&!isNaN(parseFloat(String(r.monto).replace(/,/g,'')))?' · S/ '+esc(parseFloat(String(r.monto).replace(/,/g,'')).toFixed(2)):''}</span></td><td><span class="st"><i class="dot" style="background:${COL[r.k]}"></i>${r.cierre?'Rechazo · cierre 23:59':r.status==='PARTIAL_DELIVERY'?'Rechazo parcial':NAME[r.k]}</span></td><td>${esc(r.motivo)}</td><td class="cm">${esc(r.coment)}</td><td class="cm">${esc(r.obs)}</td><td>${esc(r.valid)}${r.hAlert?'<br><span class="note">Alerta '+esc(r.hAlert)+'</span>':''}${r.cierre?'<br><span class="note">Cierre 23:59</span>':''}</td><td class="ai">${p?`${esc(p.patron)}${p.origen?`<br><span class="tag">${esc(p.origen)}</span>`:''}`:'<span class="note">—</span>'}</td></tr>`}).join('')+'</tbody>';
   $('#aiSum').innerHTML=aiSum?aiSum.map(p=>`<div><b>${esc(p.titulo)} · ${esc(p.pedidos)} casos</b><p>${esc(p.detalle)}</p><p><b style="display:inline">Acción:</b> ${esc(p.accion)}</p></div>`).join(''):''}
 
 // eventos
@@ -347,7 +362,7 @@ $('#fEdt').addEventListener('change',e=>{st.edt=e.target.value;render()});
 $('#fCon').addEventListener('change',e=>{st.con=e.target.value;render()});
 $('#fRut').addEventListener('change',e=>{st.rut=e.target.value;render()});
 $('#fCan').addEventListener('change',e=>{st.can=e.target.checked;render()});
-$('#metaTM').addEventListener('change',e=>{const v=parseFloat(e.target.value);if(v>0){st.meta=v;render()}});
+$('#metaTM').addEventListener('change',e=>{const v=parseFloat(e.target.value);if(v>0){st.meta=v;render();renderHist()}});
 $('#fTipo').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){tipo=b.dataset.t;renderD()}});
 $('#q').addEventListener('input',renderD);
 $('#btnCopy').addEventListener('click',async()=>{const t=[...$('#tD').rows].map(r=>[...r.cells].map(c=>c.innerText.replace(/\s*\n\s*/g,' / ')).join('\t')).join('\n');try{await navigator.clipboard.writeText(t);$('#cnt').textContent='Tabla copiada: pégala en Excel'}catch(e){$('#cnt').textContent='No se pudo copiar'}});
@@ -370,7 +385,7 @@ function classify(m){for(let i=0;i<Math.min(15,m.length);i++){const H=m[i].map(h
 const CFG=window.CONFIG||{};
 const SL=[['bees','Avance de ruta (BEEs)','.csv,.xlsx'],['hoja','Hoja de ruta / modulaciones','.xlsx,.xls,.csv'],['disp','Disponibilidad de camiones','.xlsx,.xls']];
 const KEEP={bees:['tour_display_id','tour_date','driver_name','truck_license_plate','poc_external_id','poc_name','status','trip_start_timestamp','trip_end_timestamp','visit_order','within_radius','out_of_radius_reason','arrived_at','finished_at','last_reason_waiting_modulation','last_reason_rescheduled','poc_rescheduled_count','total_delivered_vol','total_refused_vol','volume_hectoliters_sum','tour_status'],
- hoja:['Codigo','Ruta','Cliente','Ciudad','alerta','mr','retroalimentacion','Validado_por','UsuarioAlerta','fechahoraalerta','supervisor','agente','zonaac','Canal','UnidadDeNegocio','Empresa','Monto_pedido','Condicion_pago','Hl_Programado','Entrega Cjs','Abre','Cierra'],
+ hoja:['Fecha','Codigo','Ruta','Cliente','Ciudad','alerta','mr','retroalimentacion','Validado_por','UsuarioAlerta','fechahoraalerta','supervisor','agente','zonaac','Canal','UnidadDeNegocio','Empresa','Monto_pedido','Condicion_pago','Hl_Programado','Entrega Cjs','Abre','Cierra'],
  disp:['RUTA SAP','placa','CAPAC','TIPO DE CONTRATO','STATUS','EMPRESARIO','DISP. FLOTA','COMENTARIO']};
 const info={},busy={};let sb=null,user=null,isAdmin=false,authOpen=false;
 const fdt=d=>d?d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
@@ -388,7 +403,8 @@ $('#auth').addEventListener('click',async e=>{
   if(e.target.id==='btnOut'){await sb.auth.signOut()}});
 $('#auth').addEventListener('submit',async e=>{e.preventDefault();if(!sb)return;msg('Validando…');
   const {error}=await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(),password:$('#lPass').value});
-  msg(error?'Correo o contraseña incorrectos.':'')});
+  if(!error)return msg('');const m=String(error.message||error);
+  msg(/invalid login/i.test(m)?'Correo o contraseña incorrectos (Supabase: "'+m+'"). Revisa que el usuario exista en Authentication > Users con ese correo exacto.':/not confirmed/i.test(m)?'El usuario no está confirmado: en Supabase > Authentication > Users, bórralo y créalo de nuevo marcando "Auto Confirm User".':/fetch|network/i.test(m)?'No se pudo conectar con Supabase: revisa SUPABASE_URL en config.js.':/api key|apikey|jwt/i.test(m)?'La clave de config.js no es válida: usa la "anon public" de Legacy API keys.':'Supabase respondió: '+m)});
 async function onSession(s){
   user=s?.user||null;isAdmin=false;authOpen=false;
   if(user){const {data}=await sb.rpc('es_admin');isAdmin=data===true}
@@ -404,7 +420,7 @@ $('#slots').addEventListener('change',async e=>{
     else{const pk=trim(k,found[1]);busy[k]='Subiendo…';renderSlots();
       const {error}=await sb.from('fuentes').upsert({tipo:k,nombre:f.name,filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});
       if(error)msg('No se pudo guardar: '+error.message);
-      else{raw[k]=toObjs(pk);info[k]={nombre:f.name,filas:pk.rows.length,cargado:new Date()};build();msg(`${f.name} publicado: todos ya ven esta versión.`)}}}
+      else{raw[k]=toObjs(pk);info[k]={nombre:f.name,filas:pk.rows.length,cargado:new Date()};if(viewDate){viewDate=null;hist={};$('#viewBanner').hidden=true}build();msg(`${f.name} publicado: todos ya ven esta versión.`);await archiveDay()}}}
   catch(err){msg('Error al leer '+f.name+': '+err.message)}
   busy[k]=null;inp.value='';renderSlots()});
 async function loadOne(k){
@@ -414,7 +430,7 @@ async function loadAll(){
   msg('Cargando datos…');const r=await Promise.all(SL.map(([k])=>loadOne(k).catch(()=>false)));
   if(!raw.bees||!raw.hoja||!raw.disp){$('#headline').textContent=isAdmin?'Carga los tres archivos para empezar':'Aún no hay datos publicados';
     msg(CFG.REQUIERE_LOGIN&&!user?'Ingresa para ver los datos.':'Faltan archivos por cargar.');renderSlots();return}
-  build();await loadIA();msg('')}
+  if(!viewDate)build();await loadIA();loadHistList();msg('');archiveDay()}
 async function loadIA(){
   const fecha=rows[0]?.date;if(!fecha)return;
   const {data}=await sb.from('ia').select('filas,resumen').eq('fecha',fecha).maybeSingle();
@@ -426,9 +442,54 @@ function initSb(){
   sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')onSession(s)});
   let tm1=null;
   sb.channel('cambios')
-    .on('postgres_changes',{event:'*',schema:'public',table:'fuentes_estado'},p=>{const k=p.new?.tipo;if(!k||busy[k])return;clearTimeout(tm1);tm1=setTimeout(async()=>{if(await loadOne(k)){build();loadIA();msg('Datos actualizados con la última carga.')}},800)})
+    .on('postgres_changes',{event:'*',schema:'public',table:'fuentes_estado'},p=>{const k=p.new?.tipo;if(!k||busy[k])return;clearTimeout(tm1);tm1=setTimeout(async()=>{if(await loadOne(k)){build();if(!viewDate)loadIA();msg('Datos actualizados con la última carga.')}},800)})
+    .on('postgres_changes',{event:'*',schema:'public',table:'historico'},()=>loadHistList())
     .on('postgres_changes',{event:'*',schema:'public',table:'ia'},()=>loadIA())
     .subscribe()}
+
+// ---------- Histórico diario ----------
+const hoyL=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'});
+const isoDay=v=>{v=String(v||'').trim();let m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(m){const y=m[3].length==2?'20'+m[3]:m[3];const a=+m[1],b=+m[2];const [mo,d]=a>12?[b,a]:[a,b];return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`}const n=+v;if(n>40000&&n<60000)return new Date(Date.UTC(1899,11,30)+n*864e5).toISOString().slice(0,10);return null};
+function daySummary(){
+  const a=rows.filter(r=>r.tourSt!=='CANCELLED'),c=cnt(a);const {R}=market(a);const cl=R.filter(r=>!r.open&&r.h>=.25);const ends=R.filter(r=>r.e).map(r=>r.e);
+  return{n:a.length,ENT:c.ENT,RECH:c.RECH,ALERT:c.ALERT,REPRO:c.REPRO,RUTA:c.RUTA,cierre:a.filter(r=>r.cierre).length,
+    tmProm:cl.length?+(cl.reduce((s,r)=>s+r.h,0)/cl.length).toFixed(2):null,rutas:R.length,rutasCerradas:cl.length,
+    salida:R.length?new Date(Math.min(...R.map(r=>r.s))).toISOString():null,llegada:ends.length?new Date(Math.max(...ends)).toISOString():null,corte:corte?corte.toISOString():null}}
+let archiving=false;
+async function archiveDay(){
+  if(!sb||!isAdmin||viewDate||archiving||!raw.bees||!info.bees?.cargado)return;const f=isoDay(raw.bees[0]?.tour_date);if(!f)return;
+  const sig=SL.map(([k])=>(info[k]?.nombre||'')+':'+(info[k]?.cargado?new Date(info[k].cargado).toISOString():'')).join('|');
+  archiving=true;try{
+    const {data:h}=await sb.from('historico').select('sig').eq('fecha',f).maybeSingle();if(h?.sig===sig)return;
+    const hd=isoDay(raw.hoja?.[0]?.Fecha);
+    for(const [k] of SL){if(k==='hoja'&&hd&&hd!==f)continue;if(!raw[k])continue;const pk=trim(k,raw[k]);
+      const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:info[k]?.nombre||'',filas:pk.rows.length,cargado:info[k]?.cargado?new Date(info[k].cargado).toISOString():new Date().toISOString(),datos:pk});if(error)throw error}
+    const {error}=await sb.from('historico').upsert({fecha:f,resumen:daySummary(),sig,actualizado:new Date().toISOString()});if(error)throw error;loadHistList()}
+  catch(e){msg('No se pudo guardar el día en el histórico: '+(e?.message||e))}finally{archiving=false}}
+async function loadHistList(){
+  if(!sb)return;const {data}=await sb.from('historico').select('fecha,resumen,actualizado').order('fecha',{ascending:false}).limit(60);
+  histList=(data||[]).map(h=>({fecha:h.fecha,...h.resumen,actualizado:h.actualizado}));renderHist()}
+const fdtH=v=>v?new Date(v).toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+function renderHist(){
+  const hoy=hoyL();const L=histList.map(h=>{const x={...h};if(x.fecha<hoy&&x.ALERT){x.RECH+=x.ALERT;x.cierre=(x.cierre||0)+x.ALERT;x.ALERT=0}return x});
+  $('#fDia').innerHTML=`<option value="">Hoy · en vivo</option>`+L.map(h=>`<option value="${h.fecha}"${h.fecha===viewDate?' selected':''}>${h.fecha.split('-').reverse().join('/')}</option>`).join('');
+  if(!L.length){$('#tH').innerHTML='<tbody><tr><td class="note">Aún no hay días guardados. Se guardan solos cuando el administrador carga el archivo de BEEs.</td></tr></tbody>';$('#hMr').innerHTML='';$('#hTm').innerHTML='';return}
+  const asc=[...L].sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(-14);const dm=f=>f.slice(8)+'/'+f.slice(5,7);
+  $('#hMr').innerHTML=vcols(asc.map(h=>({name:dm(h.fecha),v:pct(h.RECH+h.ALERT,h.n),lab:pct(h.RECH+h.ALERT,h.n)+'%',tip:`${dm(h.fecha)}: ${h.RECH+h.ALERT} MR de ${h.n} pedidos`})));
+  $('#hTm').innerHTML=vcols(asc.map(h=>({name:dm(h.fecha),v:h.tmProm||0,lab:h.tmProm!=null?h.tmProm.toFixed(2):'—',tip:`${dm(h.fecha)}: TM ${hm(h.tmProm)} en ${h.rutasCerradas||0} rutas cerradas`})),st.meta);
+  $('#tH').innerHTML='<thead><tr><th>Fecha</th><th class="r">Pedidos</th><th class="r">% entrega</th><th class="r">% avance</th><th class="r">% MR</th><th class="r">Rechazos</th><th class="r">Cierre 23:59</th><th class="r">Alertados</th><th class="r">TM prom.</th><th class="r">Rutas</th><th>Guardado</th></tr></thead><tbody>'+
+    L.map(h=>`<tr data-dia="${h.fecha}" class="${h.fecha===viewDate?'on':''}"><td>${h.fecha.split('-').reverse().join('/')}${h.fecha===hoy?' <span class="note">hoy</span>':''}</td><td class="r">${fmt(h.n)}</td><td class="r">${pct(h.ENT,h.n)}%</td><td class="r">${pct(h.ENT+h.RECH,h.n)}%</td><td class="r">${pct(h.RECH+h.ALERT,h.n)}%</td><td class="r">${h.RECH}</td><td class="r">${h.cierre||0}</td><td class="r">${h.ALERT}</td><td class="r">${hm(h.tmProm)}</td><td class="r">${h.rutas}</td><td class="note">${fdtH(h.actualizado)}</td></tr>`).join('')+'</tbody>'}
+async function showDay(f){
+  if(!f){viewDate=null;hist={};$('#viewBanner').hidden=true;aiSum=null;build();loadIA();renderHist();return}
+  if(!sb)return;$('#viewBanner').hidden=false;$('#viewBanner').textContent='Cargando el '+f.split('-').reverse().join('/')+'…';
+  const {data,error}=await sb.from('dias').select('tipo,datos').eq('fecha',f);
+  const out={};for(const d of (data||[]))out[d.tipo]=toObjs(d.datos);
+  if(error||!out.bees){$('#viewBanner').textContent='No se encontraron los archivos guardados de ese día.';return}
+  out.hoja=out.hoja||raw.hoja;out.disp=out.disp||raw.disp;hist=out;viewDate=f;aiSum=null;
+  $('#viewBanner').innerHTML=`Viendo el día guardado ${f.split('-').reverse().join('/')}. <button type="button" id="btnLive" style="min-height:32px;margin-left:8px">Volver a hoy en vivo</button>`;
+  build();loadIA();renderHist()}
+$('#fDia').addEventListener('change',e=>showDay(e.target.value));
+document.addEventListener('click',e=>{if(e.target.id==='btnLive')showDay('');const tr=e.target.closest('#tH tr[data-dia]');if(tr){showDay(tr.dataset.dia);document.getElementById('ejecutivo').scrollIntoView()}});
 
 // ---------- IA (Edge Function opcional) ----------
 $('#btnAI').addEventListener('click',async()=>{
