@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Seguimiento de Ruta</title>
+<script>window.__cfgErr=null;window.addEventListener("error",function(e){if(/config\.js/.test(e.filename||""))window.__cfgErr=e.message+" (línea "+e.lineno+")"},true);</script>
 <script src="config.js"></script>
+<script>window.__cfgLoaded=!!window.CONFIG;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -90,7 +92,7 @@ table{border-collapse:collapse;width:100%}
 th{font-size:12px;font-weight:700;color:#fff;background:#3a3a3a;text-align:left;padding:7px 9px;white-space:nowrap}
 td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
 td.r,th.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
+.hadd{border:1px dashed #bdbdbd;border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px}.hadd .tools{margin:4px 0 0}.hadd button[disabled]{opacity:.5;cursor:not-allowed}#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
 td.bar{width:30%;min-width:150px;vertical-align:middle}
 .hi{color:#c62828;font-weight:700}.hi::before{content:'▲ ';font-size:10px}
 .note{font-size:12px;color:var(--muted)}
@@ -178,6 +180,7 @@ pre,.scroll{overflow-x:auto}
   <section class="sect" id="historico">
     <div class="card"><h2>Histórico diario</h2><div class="cb">
       <p class="lead">Cada día se guarda solo con la última carga de BEEs de esa fecha. Al pasar el día, sus alertados se cuentan como rechazo por cierre 23:59. Haz clic en un día para verlo completo.</p>
+      <div id="histAdmin"></div>
       <div class="g2"><div><b style="font-size:14px">% MR por día</b><div id="hMr"></div></div><div><b style="font-size:14px">Tiempo de mercado por día vs meta</b><div class="legend"><span><i class="dot" style="background:var(--ent)"></i>TM promedio (h)</span><span><i class="dot" style="background:var(--meta)"></i>Meta TM</span></div><div id="hTm"></div></div></div>
       <div class="scroll" style="margin-top:14px"><table id="tH"></table></div>
     </div></div>
@@ -392,7 +395,7 @@ const fdt=d=>d?d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',m
 const msg=t=>{$('#syncMsg').textContent=t};
 function renderSlots(){
   $('#slots').innerHTML=SL.map(([k,t,acc],i)=>{const f=info[k]||{};return `<div class="slot${i==2?' sec2':''}"><b>${t}</b><span class="stt">${f.nombre?`<i>${esc(f.nombre)}</i><br>${fmt(f.filas||0)} filas · ${fdt(f.cargado)}`:'Sin datos cargados'}</span>${busy[k]?`<span><span class="badge">${busy[k]}</span></span>`:''}${isAdmin?`<button type="button" class="${i<2?'ybtn':''}" data-up="${k}">${i<2?'Actualizar':'Actualizar si cambió'}</button><input type="file" id="f_${k}" accept="${acc}" hidden>`:''}</div>`}).join('');
-  $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);
+  $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);if(typeof renderHistAdmin==='function'&&$('#histAdmin'))renderHistAdmin();
   const a=$('#auth');
   if(user)a.innerHTML=`<span class="ldn">Sesión: ${esc(user.email)}${isAdmin?' · administrador':' · sin permiso de carga'}</span><button type="button" id="btnOut">Salir</button>`;
   else if(authOpen)a.innerHTML=`<form id="fLogin" class="login"><input type="email" id="lEmail" placeholder="Correo" autocomplete="username" required aria-label="Correo"><input type="password" id="lPass" placeholder="Contraseña" autocomplete="current-password" required aria-label="Contraseña"><button type="submit" class="ybtn">Entrar</button><button type="button" id="btnCancel">Cancelar</button></form>`;
@@ -401,7 +404,7 @@ $('#auth').addEventListener('click',async e=>{
   if(e.target.id==='btnIn'){authOpen=true;renderSlots();$('#lEmail')?.focus()}
   if(e.target.id==='btnCancel'){authOpen=false;renderSlots()}
   if(e.target.id==='btnOut'){await sb.auth.signOut()}});
-$('#auth').addEventListener('submit',async e=>{e.preventDefault();if(!sb)return;msg('Validando…');
+$('#auth').addEventListener('submit',async e=>{e.preventDefault();if(!sb){msg('No hay conexión con Supabase: '+($('#syncMsg').dataset.why||'revisa config.js como indica el mensaje de arriba.'));initSb();return}msg('Validando…');
   const {error}=await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(),password:$('#lPass').value});
   if(!error)return msg('');const m=String(error.message||error);
   msg(/invalid login/i.test(m)?'Correo o contraseña incorrectos (Supabase: "'+m+'"). Revisa que el usuario exista en Authentication > Users con ese correo exacto.':/not confirmed/i.test(m)?'El usuario no está confirmado: en Supabase > Authentication > Users, bórralo y créalo de nuevo marcando "Auto Confirm User".':/fetch|network/i.test(m)?'No se pudo conectar con Supabase: revisa SUPABASE_URL en config.js.':/api key|apikey|jwt/i.test(m)?'La clave de config.js no es válida: usa la "anon public" de Legacy API keys.':'Supabase respondió: '+m)});
@@ -436,8 +439,14 @@ async function loadIA(){
   const {data}=await sb.from('ia').select('filas,resumen').eq('fecha',fecha).maybeSingle();
   ai=data?.filas||{};aiSum=Array.isArray(data?.resumen)?data.resumen:null;renderD()}
 function initSb(){
-  if(!window.supabase||!CFG.SUPABASE_URL||/TU-PROYECTO/.test(CFG.SUPABASE_URL)){$('#headline').textContent='Falta configurar Supabase';msg('Completa SUPABASE_URL y SUPABASE_ANON_KEY en config.js.');renderSlots();return}
-  sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+  const why=window.__cfgErr?'config.js tiene un error de escritura: '+window.__cfgErr+'. Revisa comillas y comas.'
+    :!window.__cfgLoaded?'No se encontró config.js junto a index.html en GitHub (o tiene otro nombre). Debe llamarse exactamente config.js.'
+    :!CFG.SUPABASE_URL||/TU-PROYECTO/.test(CFG.SUPABASE_URL)?'config.js todavía tiene la URL de ejemplo (TU-PROYECTO). Pon tu Project URL de Supabase.'
+    :!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(CFG.SUPABASE_URL.trim())?'SUPABASE_URL no tiene el formato correcto. Debe ser como https://abcd1234.supabase.co (sin nada después). Ahora dice: '+CFG.SUPABASE_URL
+    :!CFG.SUPABASE_ANON_KEY||/TU-ANON-KEY/.test(CFG.SUPABASE_ANON_KEY)?'config.js todavía tiene la clave de ejemplo (TU-ANON-KEY). Pon la clave anon public.'
+    :!window.supabase?'No se pudo cargar la librería de Supabase (cdn.jsdelivr.net). Revisa tu internet o si la red de la empresa la bloquea.':null;
+  if(why){$('#headline').textContent='Falta configurar la conexión';msg(why);renderSlots();return}
+  sb=supabase.createClient(CFG.SUPABASE_URL.trim(),CFG.SUPABASE_ANON_KEY.trim());
   sb.auth.getSession().then(({data})=>onSession(data.session));
   sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')onSession(s)});
   let tm1=null;
@@ -456,21 +465,29 @@ function daySummary(){
     tmProm:cl.length?+(cl.reduce((s,r)=>s+r.h,0)/cl.length).toFixed(2):null,rutas:R.length,rutasCerradas:cl.length,
     salida:R.length?new Date(Math.min(...R.map(r=>r.s))).toISOString():null,llegada:ends.length?new Date(Math.max(...ends)).toISOString():null,corte:corte?corte.toISOString():null}}
 let archiving=false;
-async function archiveDay(){
-  if(!sb||!isAdmin||viewDate||archiving||!raw.bees||!info.bees?.cargado)return;const f=isoDay(raw.bees[0]?.tour_date);if(!f)return;
-  const sig=SL.map(([k])=>(info[k]?.nombre||'')+':'+(info[k]?.cargado?new Date(info[k].cargado).toISOString():'')).join('|');
+async function archiveDay(force){
+  if(!sb||!isAdmin)return 'Inicia sesión como administrador.';if(viewDate||archiving)return 'Vuelve a "Hoy en vivo" para guardar.';if(!raw.bees||(!info.bees?.cargado&&!force))return null;
+  const f=isoDay(raw.bees[0]?.tour_date);if(!f)return 'El BEEs en vivo no tiene fecha de recorrido.';
+  const hd=isoDay(raw.hoja?.[0]?.Fecha);const hojaOk=!hd||hd===f;
+  const sig=SL.filter(([k])=>k!=='hoja'||hojaOk).map(([k])=>(info[k]?.nombre||'')+':'+(info[k]?.cargado?new Date(info[k].cargado).toISOString():'')).join('|');
   archiving=true;try{
-    const {data:h}=await sb.from('historico').select('sig').eq('fecha',f).maybeSingle();if(h?.sig===sig)return;
-    const hd=isoDay(raw.hoja?.[0]?.Fecha);
-    for(const [k] of SL){if(k==='hoja'&&hd&&hd!==f)continue;if(!raw[k])continue;const pk=trim(k,raw[k]);
+    const {data:h,error:e0}=await sb.from('historico').select('sig').eq('fecha',f).maybeSingle();if(e0)throw e0;if(h?.sig===sig&&!force)return null;
+    for(const [k] of SL){if(k==='hoja'&&!hojaOk)continue;if(!raw[k])continue;const pk=trim(k,raw[k]);
       const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:info[k]?.nombre||'',filas:pk.rows.length,cargado:info[k]?.cargado?new Date(info[k].cargado).toISOString():new Date().toISOString(),datos:pk});if(error)throw error}
-    const {error}=await sb.from('historico').upsert({fecha:f,resumen:daySummary(),sig,actualizado:new Date().toISOString()});if(error)throw error;loadHistList()}
-  catch(e){msg('No se pudo guardar el día en el histórico: '+(e?.message||e))}finally{archiving=false}}
+    const {error}=await sb.from('historico').upsert({fecha:f,resumen:daySummary(),sig,actualizado:new Date().toISOString()});if(error)throw error;loadHistList();return null}
+  catch(e){const m='No se pudo guardar el día en el histórico: '+(e?.message||e)+(/relation|does not exist|schema cache/i.test(e?.message||'')?' → ejecuta actualizacion_historico.sql en Supabase.':'');msg(m);return m}finally{archiving=false}}
+const canWrite=()=>isAdmin;
+async function loadDayPart(f,k){if(!sb)return null;const {data}=await sb.from('dias').select('datos').eq('fecha',f).eq('tipo',k).maybeSingle();return data?toObjs(data.datos):null}
+async function persistDay(f,parts,sm){
+  for(const k of Object.keys(parts)){const pk=trim(k,parts[k].rows);const {error}=await sb.from('dias').upsert({fecha:f,tipo:k,nombre:parts[k].nombre,filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});if(error)throw error}
+  const {error}=await sb.from('historico').upsert({fecha:f,resumen:sm,sig:'manual:'+Date.now(),actualizado:new Date().toISOString()});if(error)throw error;await loadHistList()}
 async function loadHistList(){
-  if(!sb)return;const {data}=await sb.from('historico').select('fecha,resumen,actualizado').order('fecha',{ascending:false}).limit(60);
+  if(!sb)return;const {data,error}=await sb.from('historico').select('fecha,resumen,actualizado').order('fecha',{ascending:false}).limit(60);
+  if(error){$('#tH').innerHTML='<tbody><tr><td class="note">No se pudo leer el histórico: '+esc(error.message)+'. Si dice que la tabla no existe, ejecuta actualizacion_historico.sql en Supabase.</td></tr></tbody>';return}
   histList=(data||[]).map(h=>({fecha:h.fecha,...h.resumen,actualizado:h.actualizado}));renderHist()}
 const fdtH=v=>v?new Date(v).toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 function renderHist(){
+  renderHistAdmin();
   const hoy=hoyL();const L=histList.map(h=>{const x={...h};if(x.fecha<hoy&&x.ALERT){x.RECH+=x.ALERT;x.cierre=(x.cierre||0)+x.ALERT;x.ALERT=0}return x});
   $('#fDia').innerHTML=`<option value="">Hoy · en vivo</option>`+L.map(h=>`<option value="${h.fecha}"${h.fecha===viewDate?' selected':''}>${h.fecha.split('-').reverse().join('/')}</option>`).join('');
   if(!L.length){$('#tH').innerHTML='<tbody><tr><td class="note">Aún no hay días guardados. Se guardan solos cuando el administrador carga el archivo de BEEs.</td></tr></tbody>';$('#hMr').innerHTML='';$('#hTm').innerHTML='';return}
@@ -490,6 +507,42 @@ async function showDay(f){
   build();loadIA();renderHist()}
 $('#fDia').addEventListener('change',e=>showDay(e.target.value));
 document.addEventListener('click',e=>{if(e.target.id==='btnLive')showDay('');const tr=e.target.closest('#tH tr[data-dia]');if(tr){showDay(tr.dataset.dia);document.getElementById('ejecutivo').scrollIntoView()}});
+
+// ---------- Agregar / corregir un día del histórico ----------
+const hp={};let hmsg='';
+const fdd=f=>f?f.split('-').reverse().join('/'):'';
+async function parseFile(f,k){
+  let found=null;
+  if(/\.csv$/i.test(f.name))found=classify(parseCSV(await f.text()));
+  else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});for(const sh of wb.SheetNames){found=classify(XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,raw:false,defval:''}));if(found&&found[0]===k)break}}
+  if(!found||found[0]!==k)throw new Error(`${f.name} no parece ser "${SL.find(x=>x[0]===k)[1]}"`);
+  return toObjs(trim(k,found[1]))}
+function renderHistAdmin(){
+  const el=$('#histAdmin');if(!el)return;if(!canWrite()){el.innerHTML='';return}
+  el.innerHTML=`<div class="hadd"><b>Agregar o corregir un día</b><span class="note">Sube el BEEs de ese día y, si los tienes, su Hoja de Ruta y Disponibilidad. Se guarda con la fecha del recorrido y no cambia la vista en vivo.</span>
+  <div class="tools">${[['bees','1. BEEs del día','.csv,.xlsx',1],['hoja','2. Hoja de ruta (opcional)','.xlsx,.xls,.csv'],['disp','3. Disponibilidad (opcional)','.xlsx,.xls']].map(([k,t,acc,y])=>`<button type="button" class="${y?'ybtn':''}" data-hup="${k}">${hp[k]?'✓ '+esc(hp[k].nombre):t}</button><input type="file" id="h_${k}" accept="${acc}" hidden>`).join('')}
+  <button type="button" class="ybtn" id="btnSaveDay"${hp.bees?'':' disabled'}>Guardar día${hp.fecha?' '+fdd(hp.fecha):''}</button>
+  <button type="button" id="btnSaveLive">Guardar ahora el día en vivo</button></div><p class="note" id="histMsg" role="status">${esc(hmsg)}</p></div>`}
+$('#historico').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-hup]');if(b){document.getElementById('h_'+b.dataset.hup).click();return}
+  if(e.target.id==='btnSaveLive'){hmsg='Guardando el día en vivo…';renderHistAdmin();const r=await archiveDay(true);hmsg=r||'Día en vivo guardado en el histórico.';renderHistAdmin();return}
+  if(e.target.id==='btnSaveDay'&&hp.bees){
+    const f=hp.fecha;hmsg='Guardando el '+fdd(f)+'…';renderHistAdmin();
+    try{const out={bees:hp.bees.rows,hoja:hp.hoja?.rows||await loadDayPart(f,'hoja')||raw.hoja,disp:hp.disp?.rows||await loadDayPart(f,'disp')||raw.disp};
+      hist=out;viewDate=f;aiSum=null;build();const sm=daySummary();
+      const parts={bees:hp.bees};if(hp.hoja)parts.hoja=hp.hoja;if(hp.disp)parts.disp=hp.disp;
+      await persistDay(f,parts,sm);
+      $('#viewBanner').hidden=false;$('#viewBanner').innerHTML=`Viendo el día guardado ${fdd(f)}. <button type="button" id="btnLive" style="min-height:32px;margin-left:8px">Volver a hoy en vivo</button>`;
+      for(const k of ['bees','hoja','disp'])delete hp[k];delete hp.fecha;hmsg=`Día ${fdd(f)} guardado en el histórico.`;renderHist()}
+    catch(err){hmsg='No se pudo guardar: '+(err?.message||err);renderHistAdmin()}}});
+$('#historico').addEventListener('change',async e=>{
+  const inp=e.target;if(!inp.id?.startsWith('h_')||!inp.files?.length)return;const k=inp.id.slice(2);const f=inp.files[0];
+  try{hmsg='Leyendo '+f.name+'…';renderHistAdmin();const rws=await parseFile(f,k);hp[k]={nombre:f.name,rows:rws};
+    if(k==='bees'){hp.fecha=isoDay(rws[0]?.tour_date);if(!hp.fecha)throw new Error('no se encontró la fecha del recorrido (tour_date)')}
+    if(k==='hoja'&&hp.fecha){const hd=isoDay(rws[0]?.Fecha);hmsg=hd&&hd!==hp.fecha?`Ojo: la Hoja de Ruta es del ${fdd(hd)} y el BEEs del ${fdd(hp.fecha)}.`:'';}else hmsg='';
+    if(!hmsg)hmsg=hp.bees?`Listo para guardar el ${fdd(hp.fecha)}.`:'Ahora sube el BEEs del día.'}
+  catch(err){delete hp[k];hmsg='Error: '+(err?.message||err)}
+  inp.value='';renderHistAdmin()});
 
 // ---------- IA (Edge Function opcional) ----------
 $('#btnAI').addEventListener('click',async()=>{
