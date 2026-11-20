@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguimiento de Ruta</title>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: tablero ejecutivo de operaciones, directo, cifras primero, igual que el BI de la compañía.
+   IDEA: la consola de despacho del CD: marco negro, tarjetas KPI negras con valor amarillo, barra lateral de secciones.
+   PICTURE: KPIs de tiempo de mercado y avance arriba; gráficos dorados en tarjetas blancas con barra de título oscura.
+   COLOUR and TYPE: negro #1b1b1b, dorado #f2c200, blanco; estados: dorado entregado, negro rechazo, naranja alerta, gris oscuro reprogramado, gris claro en ruta; meta en granate. Barlow Condensed + Inter.
+   LAYOUT: barra lateral fija a la izquierda (arriba en móvil), franja de KPIs, filtros amarillos, tarjetas en grilla. */
+:root{color-scheme:light;--frame:#1b1b1b;--frame2:#262626;--card:#ffffff;--ink:#161616;--muted:#5d5d5d;--line:#e3e3e3;--y:#f2c200;--yd:#b38f00;
+--ent:#e5b800;--rech:#161616;--alert:#e8603c;--repro:#6b6b6b;--ruta:#cfcfcf;--meta:#6e2b2b}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:16px;scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--frame);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+.num,h1,.side b.brand{font-family:"Barlow Condensed",Inter,sans-serif;font-weight:700;letter-spacing:.01em}
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+.side{background:#111;color:#fff;padding:18px 0;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.side .brand{display:block;font-size:26px;line-height:1;padding:0 18px;color:var(--y)}
+.side .cd{font-size:13px;color:#bbb;padding:0 18px}
+.upd{margin:0 18px;padding:10px 12px;border:1px solid #333;border-radius:8px;text-align:center}
+.upd b{display:block;font-size:15px}.upd span{font-size:12px;color:var(--y)}
+nav.nv{display:flex;flex-direction:column}
+nav.nv a{color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:10px 18px;border-bottom:1px solid #2a2a2a;min-height:42px;display:flex;align-items:center}
+nav.nv a.on{background:var(--y);color:#111}
+nav.nv a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--y);outline-offset:2px}
+.side .ld{margin:6px 14px 0;display:flex;flex-direction:column;gap:8px}.ldh{font-size:14px;color:var(--y)}.auth{display:flex;flex-direction:column;gap:6px}.auth button{min-height:38px;font-size:13px;background:#2a2a2a;color:#fff;border-color:#444}.auth .ybtn{background:var(--y);color:#111}.login{display:flex;flex-direction:column;gap:6px}.login input{font:16px Inter,sans-serif;min-height:40px;border-radius:6px;border:1px solid #444;background:#1b1b1b;color:#fff;padding:0 10px}.ldn{font-size:12px;color:#aaa;margin:0;overflow-wrap:anywhere}
+main{padding:16px clamp(12px,2vw,24px) 40px;display:flex;flex-direction:column;gap:16px}
+.strip{background:#111;border-radius:12px;padding:12px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px 18px;color:#fff;text-align:center}
+.strip .num{font-size:26px;line-height:1.1;display:block;white-space:nowrap}
+.strip span{font-size:12px;color:var(--y)}
+h1{font-size:clamp(26px,3vw,38px);line-height:1.05;color:#fff;margin:4px 0 0;text-wrap:balance}
+.sub{color:#aaa;font-size:13px;margin:0;overflow-wrap:anywhere}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:12px}
+.tile{background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:12px 14px;color:#fff;text-align:center}
+.tile .l{font-size:13px;font-weight:600;display:block}
+.tile .num{font-size:clamp(24px,2.3vw,32px);line-height:1.15;color:var(--y);display:block;white-space:nowrap}
+.tile small{font-size:12px;color:#aaa;display:block}
+.flt{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.flt label{display:flex;flex-direction:column;flex:1 1 150px;max-width:240px}
+.flt label span{background:#000;color:#fff;font-size:12px;font-weight:600;padding:3px 10px;border-radius:6px 6px 0 0}
+.flt select{background:var(--y);color:#111;border:0;border-radius:0 0 6px 6px;font:600 15px Inter,sans-serif;min-height:40px;padding:0 8px}
+.flt label.tg{flex:0 0 auto;flex-direction:row;max-width:none}.tg{display:flex;gap:8px;align-items:center;color:#fff;font-size:14px;min-height:44px}.tg input{width:20px;height:20px;accent-color:var(--y)}
+button{font:600 15px Inter,sans-serif;min-height:44px;border-radius:8px;cursor:pointer;padding:0 14px;border:1px solid #c9c9c9;background:#fff;color:#111}
+.ybtn{background:var(--y);border-color:var(--y);color:#111}
+.lbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;font-weight:700;text-decoration:none;text-align:center}
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{background:#1b1b1b;border:1px solid #333;border-left:4px solid var(--y);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.slot.sec2{border-left-color:#777}.slot b{font-size:13px;color:#fff}.slot .hint{display:none}
+.slot .stt{font-size:11px;color:#bbb;overflow-wrap:anywhere}.slot .stt i{font-style:normal;font-weight:600;color:#ddd}
+.slot button{min-height:36px;font-size:13px;margin-top:4px;padding:0 10px}.slot button:not(.ybtn){background:#2a2a2a;color:#fff;border-color:#444}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:#111;color:var(--y)}.badge.l{background:#fde7e0;color:#8a2a12}.badge.b{background:#eee;color:#444}
+.card{background:var(--card);border-radius:12px;overflow:hidden}
+.card>h2{margin:0;background:var(--frame2);color:#fff;font:600 15px/1.3 Inter,sans-serif;text-align:center;padding:9px 14px}
+.cb{padding:16px}
+.lead{color:var(--muted);font-size:13px;margin:0 0 12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.g32{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:16px}
+@media(max-width:1100px){.g3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:820px){.g3,.g2,.g32{grid-template-columns:minmax(0,1fr)}}
+.sect{display:flex;flex-direction:column;gap:16px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:0 0 10px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.stk{display:flex;gap:2px;height:14px;width:100%}.stk i{display:block;height:100%;border-radius:3px}
+.hrow{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr) 5em;gap:10px;align-items:center;padding:4px 0;font-size:14px}
+.hrow .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.hrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trk{position:relative;height:16px}.trk .ml{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--meta)}
+.pbar{height:16px;border-radius:0 4px 4px 0;background:var(--ent)}
+.pbar.k{background:var(--rech)}.pbar.lo{background:var(--ruta)}.pbar.open{background:repeating-linear-gradient(45deg,var(--ent) 0 6px,#f7e08a 6px 12px)}
+.cut{border-top:2px dashed var(--ink);margin:6px 0;padding-top:4px;font-size:12px;color:var(--muted)}
+.cols2{columns:2 300px;column-gap:40px}.cols2 .hrow{break-inside:avoid}
+.vc{display:flex;gap:8px;align-items:flex-end;height:210px;border-bottom:1px solid var(--line);padding-top:4px}
+.vc>div{flex:1;display:flex;gap:3px;justify-content:center;align-items:flex-end;height:100%}
+.vc .col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:40%;max-width:44px;font-size:12px;font-variant-numeric:tabular-nums}
+.vc .col i{display:block;width:100%;background:var(--ent);border-radius:4px 4px 0 0}.vc .col.m i{background:var(--meta)}
+.vl{display:flex;gap:8px}.vl span{flex:1;text-align:center;font-size:12px;color:var(--muted);padding-top:6px;overflow-wrap:anywhere}
+.donut{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.donut svg{width:100%;max-width:170px;height:auto;display:block;margin:0 auto}
+.dl{list-style:none;margin:0;padding:0;font-size:13px}.dl li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)}.dl b{font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
+@media(max-width:600px){.donut{grid-template-columns:minmax(0,1fr)}.donut svg{max-width:180px;margin:0 auto}}
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;font-weight:700;color:#fff;background:#3a3a3a;text-align:left;padding:7px 9px;white-space:nowrap}
+td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+td.r,th.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.edt td{background:#fff6cf;font-weight:700}
+td.bar{width:30%;min-width:150px;vertical-align:middle}
+.hi{color:#c62828;font-weight:700}.hi::before{content:'▲ ';font-size:10px}
+.note{font-size:12px;color:var(--muted)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.tools input[type=search]{font:15px Inter,sans-serif;min-height:44px;border:1px solid #c9c9c9;border-radius:8px;padding:0 12px;flex:1 1 220px}
+.chip[aria-pressed=true]{background:#111;color:var(--y);border-color:#111}
+.ai-btn[disabled]{opacity:.6;cursor:progress}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:#111;color:var(--y);white-space:nowrap;margin-top:4px}
+.st{white-space:nowrap;font-weight:600;font-size:13px}
+#tD{min-width:1240px}#tD td:nth-child(3){min-width:220px}td.ai{min-width:220px;background:#fffbe6}td.cm{min-width:200px}
+.pat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:0 0 14px}
+.pat div{border-left:4px solid var(--y);padding:6px 12px;background:#fffbe6;border-radius:0 8px 8px 0}.pat b{display:block}.pat p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.meta-in{display:inline-flex;gap:6px;align-items:center;font-size:13px}.meta-in input{width:70px;min-height:36px;font:15px Inter;border:1px solid #c9c9c9;border-radius:6px;padding:0 6px}
+#tip{position:fixed;pointer-events:none;background:#111;color:#fff;font-size:12px;padding:6px 10px;border-radius:6px;max-width:280px;opacity:0;z-index:9;border:1px solid var(--y)}
+details{margin-top:10px}summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+pre,.scroll{overflow-x:auto}
+@media(max-width:900px){.app{grid-template-columns:minmax(0,1fr)}.side{position:static;height:auto;overflow:visible;padding:12px 0}.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.side .brand,.side .cd{padding:0 14px}nav.nv{flex-direction:row;overflow-x:auto}nav.nv a{flex:none;border:0;padding:10px 14px}.upd{display:none}.ld>.ldn:first-of-type{display:none}}
+@media(max-width:600px){table{font-size:13px}#tD{min-width:0}#tD td{min-width:0!important}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;font-weight:600}.stack td:empty{display:none}.hrow{grid-template-columns:minmax(0,7em) minmax(0,1fr) 4.5em}}
+</style><script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script></head>
+<body>
+<div class="app">
+<aside class="side">
+  <b class="brand">CONTROL DE RUTAS</b>
+  <span class="cd">CD Cono Norte</span>
+  <div class="upd"><b id="updT">—</b><span>Última actualización</span></div>
+  <nav class="nv" aria-label="Secciones">
+    <a href="#ejecutivo" class="on">Vista ejecutiva</a>
+    <a href="#tiempo">Tiempo de mercado</a>
+    <a href="#avance">Avance por BK</a>
+    <a href="#mr">MR y supervisores</a>
+    <a href="#criticas">Rutas críticas</a>
+    <a href="#detalle">Detalle de rechazos</a>
+  </nav>
+  <div class="ld"><b class="ldh">Actualización de datos</b><span class="ldn">Solo el administrador sube archivos: BEEs y Hoja de Ruta varias veces al día, la Disponibilidad solo si cambia. Todos ven la última carga al instante.</span>
+    <div class="slots" id="slots"></div><p class="ldn" id="syncMsg" role="status"></p><div id="auth" class="auth"></div></div>
+</aside>
+<main>
+  <div class="strip" id="strip"></div>
+  <div><p class="sub" id="metaTxt">Cargando datos…</p><h1 id="headline">Seguimiento de ruta</h1></div>
+  <div class="tiles" id="kpis"></div>
+  <div class="flt" role="group" aria-label="Filtros">
+    <label><span>Empresario</span><select id="fEdt"></select></label>
+    <label><span>Contrato</span><select id="fCon"></select></label>
+    <label><span>Ruta</span><select id="fRut"></select></label>
+    <label class="tg"><input type="checkbox" id="fCan" checked> Excluir tours cancelados</label>
+  </div>
+
+  <section class="sect" id="ejecutivo">
+    <div class="g3">
+      <div class="card"><h2>Avance de ruta</h2><div class="cb" id="dAv"></div></div>
+      <div class="card"><h2>Ejecución de alertas</h2><div class="cb"><p class="lead">Pedidos con alerta = Sí en la Hoja de Ruta, según su estado actual en BEEs.</p><div id="dAl"></div></div></div>
+      <div class="card"><h2>% entrega por empresario</h2><div class="cb" id="cEdt"></div></div>
+    </div>
+    <div class="card"><h2>% entrega por ruta BK</h2><div class="cb"><p class="lead" id="bkNote"></p><div id="cBk" class="cols2"></div></div></div>
+  </section>
+
+  <section class="sect" id="tiempo">
+    <div class="tiles" id="tmTiles"></div>
+    <div class="g32">
+      <div class="card"><h2>Tiempo de mercado por empresario</h2><div class="cb"><div class="legend"><span><i class="dot" style="background:var(--ent)"></i>TM promedio (h)</span><span><i class="dot" style="background:var(--meta)"></i>Meta TM</span></div><div id="cTmE"></div></div></div>
+      <div class="card"><h2>Tiempo de mercado por ruta</h2><div class="cb">
+        <div class="tools" style="margin-bottom:6px"><div class="legend" style="margin:0;flex:1"><span><i class="dot" style="background:var(--ent)"></i>Ruta cerrada</span><span><i class="dot" style="background:repeating-linear-gradient(45deg,var(--ent) 0 3px,#f7e08a 3px 6px)"></i>En curso (hasta el corte)</span><span>┆ Meta</span></div><label class="meta-in">Meta TM (h) <input type="number" id="metaTM" value="10.5" step="0.5" min="1" max="24"></label></div>
+        <div id="cTmR" class="cols2"></div></div></div>
+    </div>
+  </section>
+
+  <section class="card" id="avance"><h2>Avance de ruta por BK y empresario</h2><div class="cb">
+    <p class="lead">Las rutas van de menor a mayor avance dentro de cada empresario. Cl/h = clientes cerrados por hora desde la salida. El fin proyectado aplica esa velocidad a los pendientes. El % MR = (rechazo + alertado) / pedidos; ▲ marca los que superan al CD.</p>
+    <div id="edtMr"></div>
+    <div class="legend" id="lgA"></div>
+    <div class="scroll"><table id="tA"></table></div></div></section>
+
+  <section class="g2" id="mr">
+    <div class="card"><h2>MR por motivo</h2><div class="cb"><div class="legend"><span><i class="dot" style="background:var(--rech)"></i>Rechazo</span><span><i class="dot" style="background:var(--alert)"></i>Alertado</span></div><div id="cMot"></div></div></div>
+    <div class="card"><h2>Pareto de supervisores (MR)</h2><div class="cb"><p class="lead">Los supervisores sobre la línea concentran el 80% de los MR.</p><div id="cPar"></div></div></div>
+  </section>
+
+  <section class="card" id="criticas"><h2>Rutas con más alertas y rechazos hoy</h2><div class="cb">
+    <div class="legend"><span><i class="dot" style="background:var(--rech)"></i>Rechazo</span><span><i class="dot" style="background:var(--alert)"></i>Alertado</span><span><i class="dot" style="background:var(--repro)"></i>Reprogramado</span><span>Valor: casos · % de los clientes de la ruta</span></div>
+    <div id="cRut" class="cols2"></div></div></section>
+
+  <section class="card" id="detalle"><h2>Detalle de rechazos</h2><div class="cb">
+    <p class="lead">Comentario = retroalimentación del modulador (Hoja de Ruta). Observación = motivo de modulación o reprogramación y GPS (BEEs). Patrón IA = lectura de Claude sobre cada caso.</p>
+    <div class="pat" id="aiSum"></div>
+    <div class="tools">
+      <div role="group" aria-label="Tipo" id="fTipo"></div>
+      <input type="search" id="q" placeholder="Buscar cliente, ruta, supervisor, comentario…" aria-label="Buscar">
+      <button type="button" class="ybtn ai-btn" id="btnAI" hidden>Detectar patrones con IA</button>
+      <button type="button" id="btnCopy">Copiar tabla</button>
+      <span class="note" id="cnt"></span>
+    </div>
+    <div class="scroll"><table class="stack" id="tD"></table></div>
+    <details><summary>Lógica usada (igual que tu Power Query)</summary>
+      <ul class="note">
+        <li><b>AVANCE RUTA</b>: NOT_STARTED, DELIVERY_STARTED, ON_THE_WAY y RESCHEDULED = EN RUTA; WAITING_MODULATION = ALERTADO; PARTIAL_DELIVERY, DEFINITELY_RETURNED e IN_TREATMENT = RECHAZO; el resto = ENTREGADO.</li>
+        <li><b>MR</b> = motivo de la Hoja de Ruta (cruce por código de cliente); si falta, NEN-RECHAZO NO ALERTADO. <b>MR FINAL</b>: "Rechazo no alertado", "Coordinación anticipada" y "Cliente nos hace esperar" toman el motivo de modulación de BEEs; "Pedido modificado" pasa a "Error carga"; se quita NEN-.</li>
+        <li><b>EDT, Ruta SAP y Contrato</b>: cruce de la placa sin "PE" con Disponibilidad; sin cruce, el EDT es DSURIM SRL.</li>
+        <li><b>% entrega</b> = entregados / pedidos. <b>% avance</b> = (entregados + rechazos) / pedidos. <b>% MR</b> = (rechazos + alertados) / pedidos.</li>
+        <li><b>Tiempo de mercado</b> = de la primera salida a la última llegada de la placa en el día (todos sus viajes). En rutas que siguen en curso se mide hasta el corte. Prom., máx. y mín. usan solo rutas cerradas y descartan viajes de menos de 15 minutos. <b>SIF</b> = tipo de contrato SIF en Disponibilidad.</li>
+        <li>Cada archivo se actualiza por separado: al subir solo el CSV de BEEs, la Hoja de Ruta y la Disponibilidad se mantienen.</li>
+      </ul>
+    </details></div></section>
+</main>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n).toLocaleString('es-PE');
+const pct=(a,b)=>b?Math.round(a*1000/b)/10:0;
+const MAP={NOT_STARTED:'EN RUTA',WAITING_MODULATION:'ALERTADO',DELIVERY_STARTED:'EN RUTA',PARTIAL_DELIVERY:'RECHAZO',RESCHEDULED:'EN RUTA',ON_THE_WAY:'EN RUTA',DEFINITELY_RETURNED:'RECHAZO',IN_TREATMENT:'RECHAZO'};
+const COL={ENT:'var(--ent)',RECH:'var(--rech)',ALERT:'var(--alert)',REPRO:'var(--repro)',RUTA:'var(--ruta)'};
+const NAME={ENT:'Entregado',RECH:'Rechazo',ALERT:'Alertado',REPRO:'Reprogramado',RUTA:'En ruta'};
+let raw={bees:null,hoja:null,disp:null},files={},rows=[],corte=null,dispRows=[],ai={},aiSum=null,tipo='TODOS';
+const st={edt:'',con:'',rut:'',can:true,meta:10.5};
+const toObjs=p=>p.rows.map(r=>Object.fromEntries(p.cols.map((c,i)=>[c,r[i]])));
+const code=v=>String(v??'').trim().replace(/\.0+$/,'');
+const tm=d=>d?d.toLocaleTimeString('es-PE',{timeZone:'America/Lima',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+const tms=d=>d?d.toLocaleTimeString('es-PE',{timeZone:'America/Lima',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
+const hm=h=>h==null?'—':`${Math.floor(h)}h ${String(Math.round(h%1*60)).padStart(2,'0')}m`;
+const pd=v=>{if(!v)return null;const d=new Date(String(v).includes('T')?v:String(v).replace(' ','T'));return isNaN(d)?null:d};
+const short=e=>String(e||'').replace(/DISTRIBUCIONES|DISTRIBUIDORA|TRANSPORTES/ig,'').replace(/S\.?A\.?C\.?|SRL|S\.R\.L\./ig,'').trim()||e;
+const up=s=>String(s||'').trim().toUpperCase();
+function group(a,f){const m=new Map();for(const r of a){const k=f(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)}return m}
+const opts=(el,list,val,all)=>{el.innerHTML=`<option value="">${all}</option>`+list.map(v=>`<option value="${esc(v[0])}"${v[0]===val?' selected':''}>${esc(v[1])}</option>`).join('')};
+
+function build(){
+  if(!raw.bees||!raw.hoja||!raw.disp)return;
+  const D=[],sr=new Set(),sp=new Set();
+  for(const d of raw.disp){if(String(d.CAPAC||'').trim()==='SIN PLACA')continue;const r=up(d['RUTA SAP']);if(sr.has(r))continue;sr.add(r);D.push(d)}
+  const disp=new Map();dispRows=[];for(const d of D){const p=up(d.placa);if(sp.has(p))continue;sp.add(p);disp.set(p,d);dispRows.push(d)}
+  const hoja=new Map();for(const h of raw.hoja){const c=code(h.Codigo);if(c&&!hoja.has(c))hoja.set(c,h)}
+  corte=null;rows=[];
+  for(const b of raw.bees){
+    const c=code(b.poc_external_id);if(!c)continue;
+    const placa=up(b.truck_license_plate).split('PE').join('');
+    const av=MAP[b.status]||'ENTREGADO';const h=hoja.get(c)||{};const d=disp.get(placa)||{};
+    let mr=av==='ENTREGADO'?'ENTREGADO':av==='EN RUTA'?'EN RUTA':(h.mr?up(h.mr):null);if(mr==null)mr='NEN-RECHAZO NO ALERTADO';
+    let f=mr;if(['NEN-RECHAZO NO ALERTADO','COORDINACIÓN ANTICIPADA','NEN-CLIENTE NOS HACE ESPERAR'].includes(mr))f=b.last_reason_waiting_modulation||null;else if(mr==='NEN-PEDIDO MODIFICADO')f='NEN-ERROR CARGA';
+    f=f?up(f).split('NEN-').join('').replace('ATIB. CAMIÓN O RUTA','ATRIB CAMIÓN O RUTA'):'RECHAZO NO ALERTADO';
+    const repro=b.status==='RESCHEDULED';
+    const k=av==='ENTREGADO'?'ENT':av==='RECHAZO'?'RECH':av==='ALERTADO'?'ALERT':repro?'REPRO':'RUTA';
+    const obs=[b.last_reason_waiting_modulation&&('Modulación: '+b.last_reason_waiting_modulation),b.last_reason_rescheduled&&('Reprogramado: '+b.last_reason_rescheduled),+b.poc_rescheduled_count>0&&(b.poc_rescheduled_count+' reprogramación(es)'),b.out_of_radius_reason&&('Fuera de radio: '+b.out_of_radius_reason)].filter(Boolean).join(' · ');
+    const motivo=k==='REPRO'?(h.mr?up(h.mr).split('NEN-').join(''):up(b.last_reason_rescheduled).replace('ATIB. CAMIÓN O RUTA','ATRIB CAMIÓN O RUTA')||'SIN MOTIVO'):f;
+    const r={code:c,cliente:b.poc_name||h.Cliente,status:b.status,av,k,mr,mrf:f,motivo,placa,tour:b.tour_display_id,tourSt:b.tour_status,
+      ruta:d['RUTA SAP']||h.Ruta||placa,edt:d.EMPRESARIO||'DSURIM SRL',con:up(d['TIPO DE CONTRATO'])||'SIN DATO',sup:up(h.supervisor)||'SIN SUPERVISOR',coment:h.retroalimentacion||'',obs,
+      alerta:up(h.alerta)==='SI',valid:h.Validado_por||h.UsuarioAlerta||'',hAlert:String(h.fechahoraalerta||'').match(/\d{1,2}:\d{2}/)?.[0]||'',canal:h.Canal||'',pago:h.Condicion_pago||'',monto:h.Monto_pedido||'',
+      start:pd(b.trip_start_timestamp),end:pd(b.trip_end_timestamp),fin:pd(b.finished_at),date:b.tour_date||''};
+    for(const t of [r.fin,pd(b.arrived_at),r.end])if(t&&(!corte||t>corte))corte=t;
+    rows.push(r)}
+  opts($('#fEdt'),[...new Set(rows.map(r=>r.edt))].sort().map(e=>[e,short(e)]),st.edt,'Todos');
+  opts($('#fCon'),[...new Set(rows.map(r=>r.con))].sort().map(e=>[e,e]),st.con,'Todos');
+  opts($('#fRut'),[...new Set(rows.map(r=>r.ruta))].sort().map(e=>[e,e]),st.rut,'Todas');
+  try{ai=JSON.parse(localStorage.getItem('rutaAI:'+(rows[0]?.date||''))||'{}')}catch(e){ai={}}
+  render()}
+
+const cur=()=>rows.filter(r=>(!st.can||r.tourSt!=='CANCELLED')&&(!st.edt||r.edt===st.edt)&&(!st.con||r.con===st.con)&&(!st.rut||r.ruta===st.rut));
+const cnt=a=>{const o={ENT:0,RECH:0,ALERT:0,REPRO:0,RUTA:0};for(const r of a)o[r.k]++;return o};
+function speed(a){
+  const n=a.length,c=cnt(a),done=c.ENT+c.RECH;const st0=a.map(r=>r.start).filter(Boolean);
+  if(!st0.length)return{n,c,done,v:null,eta:null,label:'Sin iniciar'};
+  const s=new Date(Math.min(...st0));const ends=a.map(r=>r.end);const closed=ends.every(Boolean);
+  const e=closed?new Date(Math.max(...ends)):corte;const h=Math.max((e-s)/36e5,.25);const v=done/h;const pend=n-done;
+  let eta=null,label;const eod=new Date(corte.getTime()-18e6);eod.setUTCHours(23,59,0,0);eod.setTime(eod.getTime()+18e6);
+  if(closed||pend===0)label='Cerrada '+tm(closed?e:corte);else if(v>0&&done>=3){eta=new Date(corte.getTime()+pend/v*36e5);if(eta>eod){label='Después de 23:59';eta=null}else label=tm(eta)}else label='Pocas entregas';
+  return{n,c,done,v,eta,label,h}}
+// tiempo de mercado por placa y por viaje
+function market(a){
+  const R=[],T=[];
+  for(const [p,x] of group(a,r=>r.placa)){
+    const tours=[...group(x,r=>r.tour).values()].map(t=>{const s=t[0].start,e=t[0].end;return{s,e,h:s&&e?(e-s)/36e5:null}}).filter(t=>t.s);
+    if(!tours.length)continue;T.push(...tours);
+    const s=new Date(Math.min(...tours.map(t=>t.s)));const closed=tours.every(t=>t.e);const e=closed?new Date(Math.max(...tours.map(t=>t.e))):corte;
+    R.push({placa:p,ruta:x[0].ruta,edt:x[0].edt,con:x[0].con,s,e:closed?e:null,h:(e-s)/36e5,open:!closed})}
+  return{R,T}}
+const stk=(c,keys)=>{const t=keys.reduce((s,k)=>s+c[k],0)||1;return `<div class="stk">${keys.filter(k=>c[k]).map(k=>`<i style="flex-grow:${c[k]};background:${COL[k]}" data-tip="${NAME[k]}: ${c[k]} (${pct(c[k],t)}%)"></i>`).join('')}</div>`};
+const donut=(parts,center,sub)=>{const t=parts.reduce((x,p)=>x+p[1],0)||1;const R=70,C=2*Math.PI*R;let off=0;const g=parts.filter(p=>p[1]).length>1?2:0;
+  const arcs=parts.filter(p=>p[1]).map(([l,v,col])=>{const len=v/t*C;const seg=`<circle r="${R}" cx="90" cy="90" fill="none" stroke="${col}" stroke-width="26" stroke-dasharray="${Math.max(len-g,0.5)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)" data-tip="${l}: ${v} (${pct(v,t)}%)"></circle>`;off+=len;return seg}).join('');
+  return `<div class="donut"><svg viewBox="0 0 180 180" role="img" aria-label="${esc(sub)}">${arcs}<text x="90" y="92" text-anchor="middle" font-family="Barlow Condensed,Inter,sans-serif" font-weight="700" font-size="34" fill="#161616">${center}</text><text x="90" y="113" text-anchor="middle" font-size="12" fill="#5d5d5d">${esc(sub)}</text></svg><ul class="dl">${parts.map(([l,v,col])=>`<li><i class="dot" style="background:${col};margin-top:5px"></i><span>${l}</span><b>${fmt(v)} · ${pct(v,t)}%</b></li>`).join('')}<li><span></span><span>Total</span><b>${fmt(t)}</b></li></ul></div>`};
+const vcols=(items,meta)=>{const mx=Math.max(1,meta||0,...items.map(o=>o.v||0))*1.12;return `<div class="vc">${items.map(o=>`<div><div class="col"><span>${o.lab}</span><i style="height:${(o.v||0)/mx*100}%" data-tip="${esc(o.tip)}"></i></div>${meta?`<div class="col m"><span>${meta}</span><i style="height:${meta/mx*100}%" data-tip="Meta TM ${meta} h"></i></div>`:''}</div>`).join('')}</div><div class="vl">${items.map(o=>`<span>${esc(o.name)}</span>`).join('')}</div>`};
+
+function render(){
+  const a=cur(),c=cnt(a),n=a.length,done=c.ENT+c.RECH,mr=c.RECH+c.ALERT,cdMr=pct(mr,n);
+  const byP=group(a,r=>r.placa);const sp=[...byP.values()].map(speed).filter(s=>s.v!=null);
+  const hrs=sp.reduce((s,x)=>s+x.h,0),dn=sp.reduce((s,x)=>s+x.done,0);const vel=hrs?dn/hrs:0;
+  const etas=sp.map(s=>s.eta).filter(Boolean);const late=sp.filter(s=>s.label==='Después de 23:59').length;const lastEta=etas.length?new Date(Math.max(...etas)):null;
+  const {R,T}=market(a);const cl=R.filter(r=>!r.open&&r.h>=.25);const tv=T.filter(t=>t.h!=null&&t.h>=.25);
+  const first=R.length?new Date(Math.min(...R.map(r=>r.s))):null;const ends=R.filter(r=>r.e).map(r=>r.e);const last=ends.length?new Date(Math.max(...ends)):null;
+  const sif=R.filter(r=>r.con==='SIF').length;const over14=R.filter(r=>r.h>14).length;const meta=st.meta;
+  $('#updT').textContent=`${rows[0]?.date||''} ${tm(corte)}`;
+  $('#strip').innerHTML=[[tms(first),'Hora primera salida'],[tms(last),'Hora última llegada'],[R.length,'# Transportes'],[tv.length?(tv.reduce((s,t)=>s+t.h,0)/tv.length).toFixed(2):'—','Horas promedio por viaje'],[over14||'--','Rutas > 14h'],[pct(sif,R.length)+' %','% Rutas SIF']].map(([v,l])=>`<div><b class="num">${v}</b><span>${l}</span></div>`).join('');
+  $('#headline').textContent=`${pct(done,n)}% de avance y ${cdMr}% de MR (${mr} pedidos) al corte de las ${tm(corte)}`;
+  $('#metaTxt').textContent=`CD Cono Norte · ${rows[0]?.date||''} · `+SL.map(([k,t])=>`${t.split(' (')[0]}: ${info[k]?.cargado?fdt(info[k].cargado):'—'}`).join(' · ');renderSlots();
+  const K=[['% avance',pct(done,n)+'%',`${fmt(done)} de ${fmt(n)} clientes`],['% entrega',pct(c.ENT,n)+'%',`${fmt(c.ENT)} entregados`],['% MR',cdMr+'%',`${mr} pedidos con MR`],['Rechazos',fmt(c.RECH),'entrega parcial'],['Alertados',fmt(c.ALERT),'en modulación'],['Reprogramados',fmt(c.REPRO),'cuentan como en ruta'],['Velocidad',vel.toFixed(1),'clientes/h por ruta'],['Fin proyectado',lastEta?tm(lastEta):'—',late?`${late} ruta(s) pasarían 23:59`:'última ruta']];
+  $('#kpis').innerHTML=K.map(([l,v,s])=>`<div class="tile"><span class="l">${l}</span><span class="num">${v}</span><small>${s}</small></div>`).join('');
+  // ejecutivo
+  $('#dAv').innerHTML=donut([['Entregado',c.ENT,COL.ENT],['Alertado',c.ALERT,COL.ALERT],['En ruta',c.RUTA+c.REPRO,COL.RUTA],['Rechazo',c.RECH,COL.RECH]],pct(c.ENT,n)+'%','entregado');
+  const al=a.filter(r=>r.alerta),ac=cnt(al);
+  $('#dAl').innerHTML=al.length?donut([['Entregado tras alerta',ac.ENT,COL.ENT],['Rechazo parcial',ac.RECH,COL.RECH],['En modulación',ac.ALERT,COL.ALERT],['Reprogramado',ac.REPRO,COL.REPRO],['Aún en ruta',ac.RUTA,COL.RUTA]],pct(ac.ENT+ac.RECH,al.length)+'%','alertas cerradas'):'<p class="note">Sin alertas en la Hoja de Ruta.</p>';
+  const byE=group(a,r=>r.edt);
+  const ee=[...byE].map(([e,x])=>{const k=cnt(x);return{name:short(e),v:pct(k.ENT,x.length),lab:pct(k.ENT,x.length)+'%',tip:`${short(e)}: ${k.ENT} de ${x.length} entregados`}}).sort((p,q)=>q.v-p.v);
+  $('#cEdt').innerHTML=vcols(ee);
+  const bk=[...group(a,r=>r.ruta)].map(([k,x])=>{const q=cnt(x);return{k,v:pct(q.ENT,x.length),q,n:x.length}}).sort((p,q)=>p.v-q.v);const show=bk.slice(0,20);
+  $('#bkNote').textContent=(bk.length>20?`Las 20 rutas con menor % de entrega de ${bk.length}. `:'')+`Línea punteada = CD ${pct(c.ENT,n)}%.`;
+  $('#cBk').innerHTML=show.map(o=>`<div class="hrow"><span class="nm">${esc(o.k)}</span><div class="trk"><div class="pbar" style="width:${o.v}%" data-tip="${esc(o.k)}: ${o.q.ENT} de ${o.n} entregados"></div><span class="ml" style="left:${pct(c.ENT,n)}%;border-color:var(--ink)"></span></div><span class="n">${o.v}%</span></div>`).join('');
+  // tiempo de mercado
+  const avg=x=>x.length?x.reduce((s,r)=>s+r.h,0)/x.length:null;
+  $('#tmTiles').innerHTML=[['Tiem. prom. de mercado',hm(avg(cl)),`${cl.length} rutas cerradas`],['Tiem. máx. de mercado',cl.length?hm(Math.max(...cl.map(r=>r.h))):'—',cl.length?(cl.find(r=>r.h===Math.max(...cl.map(x=>x.h)))?.ruta||''):''],['Tiem. mín. de mercado',cl.length?hm(Math.min(...cl.map(r=>r.h))):'—',cl.length?(cl.find(r=>r.h===Math.min(...cl.map(x=>x.h)))?.ruta||''):''],['Rutas SIF',sif,'contrato SIF'],['Total rutas operadas',R.length,`${R.filter(r=>r.open).length} en curso`],['Rutas sobre meta',R.filter(r=>r.h>meta).length,`más de ${meta} h`]].map(([l,v,s])=>`<div class="tile"><span class="l">${l}</span><span class="num">${v}</span><small>${esc(s)}</small></div>`).join('');
+  const te=[...group(R,r=>r.edt)].map(([e,x])=>{const v=avg(x);return{name:short(e),v:+v.toFixed(2),lab:v.toFixed(2),tip:`${short(e)}: ${hm(v)} promedio en ${x.length} rutas (${x.filter(r=>r.open).length} en curso)`}}).sort((p,q)=>q.v-p.v);
+  $('#cTmE').innerHTML=te.length?vcols(te,meta)+'<p class="note">Incluye rutas en curso medidas hasta el corte.</p>':'<p class="note">Sin viajes iniciados.</p>';
+  const rs=[...R].sort((p,q)=>q.h-p.h);const rmx=Math.max(meta*1.1,...rs.map(r=>r.h));
+  $('#cTmR').innerHTML=rs.map(r=>`<div class="hrow"><span class="nm">${esc(r.ruta)}</span><div class="trk"><div class="pbar${r.open?' open':''}" style="width:${r.h/rmx*100}%" data-tip="${esc(r.ruta)} · ${esc(short(r.edt))}: ${hm(r.h)} ${r.open?'(en curso)':'· llegó '+tm(r.e)} · salió ${tm(r.s)}"></div><span class="ml" style="left:${meta/rmx*100}%"></span></div><span class="n ${r.h>meta?'hi':''}">${hm(r.h)}</span></div>`).join('')||'<p class="note">Sin viajes iniciados.</p>';
+  // % MR por empresario
+  const em=[...byE].map(([e,x])=>{const k=cnt(x);return{e,t:x.length,m:k.RECH+k.ALERT,c:k}}).sort((p,q)=>pct(q.m,q.t)-pct(p.m,p.t));const emx=Math.max(1,cdMr,...em.map(o=>pct(o.m,o.t)));
+  $('#edtMr').innerHTML=`<b style="font-size:14px">% MR por empresario</b><div class="legend"><span><i class="dot" style="background:var(--rech)"></i>Rechazo</span><span><i class="dot" style="background:var(--alert)"></i>Alertado</span><span>┆ CD Cono Norte ${cdMr}%</span></div>`+em.map(o=>`<div class="hrow"><span class="nm">${esc(short(o.e))}</span><div class="trk"><div style="width:${pct(o.m,o.t)/emx*100}%">${o.m?stk(o.c,['RECH','ALERT']):''}</div><span class="ml" style="left:${cdMr/emx*100}%;border-color:var(--ink)"></span></div><span class="n ${pct(o.m,o.t)>cdMr?'hi':''}">${pct(o.m,o.t)}%</span></div>`).join('')+'<div style="height:16px"></div>';
+  // avance por BK
+  const keys=['ENT','RECH','ALERT','REPRO','RUTA'];
+  $('#lgA').innerHTML=keys.map(k=>`<span><i class="dot" style="background:${COL[k]}"></i>${NAME[k]}</span>`).join('');
+  const pm=(x,t)=>{const v=pct(x,t);return x?`<span class="${v>cdMr?'hi':''}" data-tip="${x} de ${t} pedidos · CD ${cdMr}%">${v}%</span>`:''};
+  let h='<thead><tr><th>Ruta</th><th>Placa</th><th>Avance</th><th class="r">%</th><th class="r">Clientes</th><th class="r">Cl/h</th><th class="r">Fin proy.</th><th class="r">MR</th><th class="r">% MR</th></tr></thead><tbody>';
+  for(const [e,ea] of [...byE].sort((x,y)=>y[1].length-x[1].length)){
+    const es=speed(ea),ec=es.c;const dsp=dispRows.filter(d=>(d.EMPRESARIO||'')===e&&/^disponible$/i.test(String(d.STATUS||'').trim())).length;
+    const rts=[...group(ea,r=>r.placa).values()].map(x=>({r:x[0],s:speed(x)})).sort((p,q)=>pct(p.s.done,p.s.n)-pct(q.s.done,q.s.n));
+    h+=`<tr class="edt"><td colspan="2">${esc(short(e))}<br><span class="note">${rts.length} rutas en BEEs · ${dsp} unidades disponibles</span></td><td class="bar">${stk(ec,keys)}</td><td class="r">${pct(es.done,es.n)}%</td><td class="r">${es.done}/${es.n}</td><td></td><td></td><td class="r">${ec.RECH+ec.ALERT}</td><td class="r">${pm(ec.RECH+ec.ALERT,es.n)||'0%'}</td></tr>`;
+    for(const {r,s} of rts)h+=`<tr><td>${esc(r.ruta)}</td><td>${esc(r.placa)}</td><td class="bar">${stk(s.c,keys)}</td><td class="r">${pct(s.done,s.n)}%</td><td class="r">${s.done}/${s.n}</td><td class="r">${s.v!=null?s.v.toFixed(1):'—'}</td><td class="r">${esc(s.label)}</td><td class="r">${s.c.RECH+s.c.ALERT||''}</td><td class="r">${pm(s.c.RECH+s.c.ALERT,s.n)}</td></tr>`}
+  $('#tA').innerHTML=h+'</tbody>';
+  // motivos
+  const m=a.filter(r=>r.k==='RECH'||r.k==='ALERT');const bm=[...group(m,r=>r.mrf)].map(([k,x])=>[k,cnt(x)]).sort((p,q)=>(q[1].RECH+q[1].ALERT)-(p[1].RECH+p[1].ALERT));const mx=Math.max(1,...bm.map(x=>x[1].RECH+x[1].ALERT));
+  $('#cMot').innerHTML=bm.map(([k,c])=>{const t=c.RECH+c.ALERT;return `<div class="hrow"><span class="nm" title="${esc(k)}">${esc(k.charAt(0)+k.slice(1).toLowerCase())}</span><div style="width:${t/mx*100}%">${stk(c,['RECH','ALERT'])}</div><span class="n">${t}</span></div>`}).join('')||'<p class="note">Sin MR con estos filtros.</p>';
+  // pareto
+  const bs=[...group(m,r=>r.sup)].map(([k,x])=>[k,x.length]).sort((p,q)=>q[1]-p[1]);const tot=m.length;let acc=0,cutDone=false,ph='';const px=Math.max(1,...bs.map(x=>x[1]));
+  for(const [k,v] of bs){const before=acc;acc+=v;const vital=pct(before,tot)<80;if(!vital&&!cutDone){ph+=`<div class="cut">80% acumulado de los MR</div>`;cutDone=true}
+    ph+=`<div class="hrow"><span class="nm" title="${esc(k)}">${esc(k)}</span><div class="pbar ${vital?'k':'lo'}" style="width:${v/px*100}%" data-tip="${esc(k)}: ${v} MR · ${pct(acc,tot)}% acumulado"></div><span class="n">${v} · ${Math.round(pct(acc,tot))}%</span></div>`}
+  $('#cPar').innerHTML=ph||'<p class="note">Sin MR con estos filtros.</p>';
+  // rutas criticas
+  const cr=[...group(a,r=>r.ruta)].map(([k,x])=>{const c=cnt(x);return{k,x,c,t:c.RECH+c.ALERT+c.REPRO}}).filter(o=>o.t).sort((p,q)=>q.t-p.t||q.c.RECH-p.c.RECH).slice(0,10);const cm=Math.max(1,...cr.map(o=>o.t));
+  $('#cRut').innerHTML=cr.map(o=>`<div class="hrow"><span class="nm">${esc(o.k)} <span class="note">${esc(short(o.x[0].edt))}</span></span><div style="width:${o.t/cm*100}%">${stk(o.c,['RECH','ALERT','REPRO'])}</div><span class="n">${o.t} · ${Math.round(pct(o.t,o.x.length))}%</span></div>`).join('')||'<p class="note">Sin casos.</p>';
+  renderD()}
+
+const detRows=()=>cur().filter(r=>r.k==='RECH'||r.k==='ALERT'||r.k==='REPRO');
+function renderD(){
+  const all=detRows(),c=cnt(all);
+  $('#fTipo').innerHTML=[['TODOS','Todos',all.length],['RECH','Rechazo',c.RECH],['ALERT','Alertado',c.ALERT],['REPRO','Reprogramado',c.REPRO]].map(([k,l,n])=>`<button type="button" class="chip" data-t="${k}" aria-pressed="${tipo===k}">${l} ${n}</button>`).join(' ');
+  const q=$('#q').value.trim().toLowerCase();
+  const a=all.filter(r=>(tipo==='TODOS'||r.k===tipo)&&(!q||[r.cliente,r.code,r.ruta,r.sup,r.coment,r.obs,r.motivo,r.edt,ai[r.code]?.patron].join(' ').toLowerCase().includes(q))).sort((x,y)=>x.ruta.localeCompare(y.ruta)||x.k.localeCompare(y.k));
+  $('#cnt').textContent=`${a.length} casos`;
+  $('#tD').innerHTML='<thead><tr><th>Ruta</th><th>Supervisor</th><th>Cliente</th><th>Estado</th><th>Motivo</th><th>Comentario</th><th>Observación BEEs</th><th>Validó</th><th>Patrón IA</th></tr></thead><tbody>'+a.map(r=>{const p=ai[r.code];return `<tr><td>${esc(r.ruta)}<br><span class="note">${esc(short(r.edt))}</span></td><td>${esc(r.sup)}</td><td>${esc(r.cliente)}<br><span class="note">${esc(r.code)} · ${esc(r.canal)} · ${esc(r.pago)}${r.monto&&!isNaN(parseFloat(String(r.monto).replace(/,/g,'')))?' · S/ '+esc(parseFloat(String(r.monto).replace(/,/g,'')).toFixed(2)):''}</span></td><td><span class="st"><i class="dot" style="background:${COL[r.k]}"></i>${r.status==='PARTIAL_DELIVERY'?'Rechazo parcial':NAME[r.k]}</span></td><td>${esc(r.motivo)}</td><td class="cm">${esc(r.coment)}</td><td class="cm">${esc(r.obs)}</td><td>${esc(r.valid)}${r.hAlert?'<br><span class="note">'+esc(r.hAlert)+'</span>':''}</td><td class="ai">${p?`${esc(p.patron)}${p.origen?`<br><span class="tag">${esc(p.origen)}</span>`:''}`:'<span class="note">—</span>'}</td></tr>`}).join('')+'</tbody>';
+  $('#aiSum').innerHTML=aiSum?aiSum.map(p=>`<div><b>${esc(p.titulo)} · ${esc(p.pedidos)} casos</b><p>${esc(p.detalle)}</p><p><b style="display:inline">Acción:</b> ${esc(p.accion)}</p></div>`).join(''):''}
+
+// eventos
+$('#fEdt').addEventListener('change',e=>{st.edt=e.target.value;render()});
+$('#fCon').addEventListener('change',e=>{st.con=e.target.value;render()});
+$('#fRut').addEventListener('change',e=>{st.rut=e.target.value;render()});
+$('#fCan').addEventListener('change',e=>{st.can=e.target.checked;render()});
+$('#metaTM').addEventListener('change',e=>{const v=parseFloat(e.target.value);if(v>0){st.meta=v;render()}});
+$('#fTipo').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){tipo=b.dataset.t;renderD()}});
+$('#q').addEventListener('input',renderD);
+$('#btnCopy').addEventListener('click',async()=>{const t=[...$('#tD').rows].map(r=>[...r.cells].map(c=>c.innerText.replace(/\s*\n\s*/g,' / ')).join('\t')).join('\n');try{await navigator.clipboard.writeText(t);$('#cnt').textContent='Tabla copiada: pégala en Excel'}catch(e){$('#cnt').textContent='No se pudo copiar'}});
+const tip=$('#tip');document.addEventListener('pointerover',e=>{const t=e.target.closest('[data-tip]');if(t){tip.textContent=t.dataset.tip;tip.style.opacity=1}else tip.style.opacity=0});
+document.addEventListener('pointermove',e=>{tip.style.left=Math.min(e.clientX+12,innerWidth-290)+'px';tip.style.top=(e.clientY+14)+'px'});
+const navs=[...document.querySelectorAll('nav.nv a')];const secObs=new IntersectionObserver(es=>{for(const en of es)if(en.isIntersecting){navs.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+en.target.id))}},{rootMargin:'-20% 0px -70% 0px'});
+navs.forEach(a=>{const s=document.querySelector(a.getAttribute('href'));if(s)secObs.observe(s)});
+
+// carga de archivos
+function loadXLSX(){return window.XLSX?Promise.resolve():new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=()=>ko(new Error('No se pudo cargar el lector de Excel'));document.head.appendChild(s)})}
+function parseCSV(t){t=t.replace(/^﻿/,'');const first=t.split(/\r?\n/,1)[0];const sep=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?';':',';const out=[];let row=[],f='',q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}else if(ch==='"')q=true;else if(ch===sep){row.push(f);f=''}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;row.push(f);out.push(row);row=[];f=''}else f+=ch}
+  if(f||row.length){row.push(f);out.push(row)}return out}
+function objs(m,hi){const H=m[hi].map(h=>String(h).replace(/\s+/g,' ').trim());return m.slice(hi+1).filter(r=>r.some(v=>String(v).trim()!=='')).map(r=>Object.fromEntries(H.map((h,i)=>[h,r[i]??''])))}
+function classify(m){for(let i=0;i<Math.min(15,m.length);i++){const H=m[i].map(h=>String(h).replace(/\s+/g,' ').trim());
+  if(H.includes('poc_external_id')&&H.includes('status'))return['bees',objs(m,i)];
+  if(H.includes('Codigo')&&(H.includes('mr')||H.includes('alerta')))return['hoja',objs(m,i)];
+  if(H.includes('RUTA SAP')&&H.includes('placa')&&H.includes('EMPRESARIO'))return['disp',objs(m,i)]}return null}
+// ---------- Supabase ----------
+const CFG=window.CONFIG||{};
+const SL=[['bees','Avance de ruta (BEEs)','.csv,.xlsx'],['hoja','Hoja de ruta / modulaciones','.xlsx,.xls,.csv'],['disp','Disponibilidad de camiones','.xlsx,.xls']];
+const KEEP={bees:['tour_display_id','tour_date','driver_name','truck_license_plate','poc_external_id','poc_name','status','trip_start_timestamp','trip_end_timestamp','visit_order','within_radius','out_of_radius_reason','arrived_at','finished_at','last_reason_waiting_modulation','last_reason_rescheduled','poc_rescheduled_count','total_delivered_vol','total_refused_vol','volume_hectoliters_sum','tour_status'],
+ hoja:['Codigo','Ruta','Cliente','Ciudad','alerta','mr','retroalimentacion','Validado_por','UsuarioAlerta','fechahoraalerta','supervisor','agente','zonaac','Canal','UnidadDeNegocio','Empresa','Monto_pedido','Condicion_pago','Hl_Programado','Entrega Cjs','Abre','Cierra'],
+ disp:['RUTA SAP','placa','CAPAC','TIPO DE CONTRATO','STATUS','EMPRESARIO','DISP. FLOTA','COMENTARIO']};
+const info={},busy={};let sb=null,user=null,isAdmin=false,authOpen=false;
+const fdt=d=>d?d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+const msg=t=>{$('#syncMsg').textContent=t};
+function renderSlots(){
+  $('#slots').innerHTML=SL.map(([k,t,acc],i)=>{const f=info[k]||{};return `<div class="slot${i==2?' sec2':''}"><b>${t}</b><span class="stt">${f.nombre?`<i>${esc(f.nombre)}</i><br>${fmt(f.filas||0)} filas · ${fdt(f.cargado)}`:'Sin datos cargados'}</span>${busy[k]?`<span><span class="badge">${busy[k]}</span></span>`:''}${isAdmin?`<button type="button" class="${i<2?'ybtn':''}" data-up="${k}">${i<2?'Actualizar':'Actualizar si cambió'}</button><input type="file" id="f_${k}" accept="${acc}" hidden>`:''}</div>`}).join('');
+  $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);
+  const a=$('#auth');
+  if(user)a.innerHTML=`<span class="ldn">Sesión: ${esc(user.email)}${isAdmin?' · administrador':' · sin permiso de carga'}</span><button type="button" id="btnOut">Salir</button>`;
+  else if(authOpen)a.innerHTML=`<form id="fLogin" class="login"><input type="email" id="lEmail" placeholder="Correo" autocomplete="username" required aria-label="Correo"><input type="password" id="lPass" placeholder="Contraseña" autocomplete="current-password" required aria-label="Contraseña"><button type="submit" class="ybtn">Entrar</button><button type="button" id="btnCancel">Cancelar</button></form>`;
+  else a.innerHTML=`<button type="button" id="btnIn">${CFG.REQUIERE_LOGIN?'Ingresar':'Ingresar para actualizar'}</button>`}
+$('#auth').addEventListener('click',async e=>{
+  if(e.target.id==='btnIn'){authOpen=true;renderSlots();$('#lEmail')?.focus()}
+  if(e.target.id==='btnCancel'){authOpen=false;renderSlots()}
+  if(e.target.id==='btnOut'){await sb.auth.signOut()}});
+$('#auth').addEventListener('submit',async e=>{e.preventDefault();if(!sb)return;msg('Validando…');
+  const {error}=await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(),password:$('#lPass').value});
+  msg(error?'Correo o contraseña incorrectos.':'')});
+async function onSession(s){
+  user=s?.user||null;isAdmin=false;authOpen=false;
+  if(user){const {data}=await sb.rpc('es_admin');isAdmin=data===true}
+  renderSlots();if(user||!CFG.REQUIERE_LOGIN)loadAll()}
+const trim=(k,arr)=>{const cols=KEEP[k];return{cols,rows:arr.map(o=>cols.map(c=>o[c]==null?'':String(o[c])))}};
+$('#slots').addEventListener('click',e=>{const b=e.target.closest('[data-up]');if(b)document.getElementById('f_'+b.dataset.up).click()});
+$('#slots').addEventListener('change',async e=>{
+  const inp=e.target;if(!inp.files?.length||!isAdmin)return;const k=inp.id.slice(2);const f=inp.files[0];
+  try{busy[k]='Leyendo…';renderSlots();let found=null;
+    if(/\.csv$/i.test(f.name))found=classify(parseCSV(await f.text()));
+    else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});for(const sh of wb.SheetNames){found=classify(XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,raw:false,defval:''}));if(found&&found[0]===k)break}}
+    if(!found||found[0]!==k){msg(`${f.name} no parece ser "${SL.find(x=>x[0]===k)[1]}". Revisa que tenga sus columnas originales.`)}
+    else{const pk=trim(k,found[1]);busy[k]='Subiendo…';renderSlots();
+      const {error}=await sb.from('fuentes').upsert({tipo:k,nombre:f.name,filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});
+      if(error)msg('No se pudo guardar: '+error.message);
+      else{raw[k]=toObjs(pk);info[k]={nombre:f.name,filas:pk.rows.length,cargado:new Date()};build();msg(`${f.name} publicado: todos ya ven esta versión.`)}}}
+  catch(err){msg('Error al leer '+f.name+': '+err.message)}
+  busy[k]=null;inp.value='';renderSlots()});
+async function loadOne(k){
+  const {data,error}=await sb.from('fuentes').select('tipo,nombre,filas,cargado,datos').eq('tipo',k).maybeSingle();
+  if(error||!data)return false;raw[k]=toObjs(data.datos);info[k]={nombre:data.nombre,filas:data.filas,cargado:new Date(data.cargado)};return true}
+async function loadAll(){
+  msg('Cargando datos…');const r=await Promise.all(SL.map(([k])=>loadOne(k).catch(()=>false)));
+  if(!raw.bees||!raw.hoja||!raw.disp){$('#headline').textContent=isAdmin?'Carga los tres archivos para empezar':'Aún no hay datos publicados';
+    msg(CFG.REQUIERE_LOGIN&&!user?'Ingresa para ver los datos.':'Faltan archivos por cargar.');renderSlots();return}
+  build();await loadIA();msg('')}
+async function loadIA(){
+  const fecha=rows[0]?.date;if(!fecha)return;
+  const {data}=await sb.from('ia').select('filas,resumen').eq('fecha',fecha).maybeSingle();
+  ai=data?.filas||{};aiSum=Array.isArray(data?.resumen)?data.resumen:null;renderD()}
+function initSb(){
+  if(!window.supabase||!CFG.SUPABASE_URL||/TU-PROYECTO/.test(CFG.SUPABASE_URL)){$('#headline').textContent='Falta configurar Supabase';msg('Completa SUPABASE_URL y SUPABASE_ANON_KEY en config.js.');renderSlots();return}
+  sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+  sb.auth.getSession().then(({data})=>onSession(data.session));
+  sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')onSession(s)});
+  let tm1=null;
+  sb.channel('cambios')
+    .on('postgres_changes',{event:'*',schema:'public',table:'fuentes_estado'},p=>{const k=p.new?.tipo;if(!k||busy[k])return;clearTimeout(tm1);tm1=setTimeout(async()=>{if(await loadOne(k)){build();loadIA();msg('Datos actualizados con la última carga.')}},800)})
+    .on('postgres_changes',{event:'*',schema:'public',table:'ia'},()=>loadIA())
+    .subscribe()}
+
+// ---------- IA (Edge Function opcional) ----------
+$('#btnAI').addEventListener('click',async()=>{
+  const b=$('#btnAI');if(!isAdmin)return;b.disabled=true;const all=detRows();const todo=all.filter(r=>!ai[r.code]);const N=40;const fecha=rows[0]?.date;
+  try{for(let i=0;i<todo.length;i+=N){b.textContent=`Analizando ${Math.min(i+N,todo.length)} de ${todo.length}…`;
+      const casos=todo.slice(i,i+N).map(r=>({id:r.code,estado:NAME[r.k],motivo:r.motivo,comentario:r.coment,obs:r.obs,canal:r.canal,pago:r.pago,monto:r.monto,ruta:r.ruta,supervisor:r.sup}));
+      const {data,error}=await sb.functions.invoke(CFG.IA_FUNCION,{body:{tipo:'filas',casos}});if(error)throw error;
+      for(const f of (data?.filas||[]))if(f&&f.id)ai[code(f.id)]={patron:String(f.patron||''),origen:String(f.origen||'')};renderD()}
+    b.textContent='Resumiendo patrones…';
+    const casos=all.map(r=>({motivo:r.motivo,comentario:r.coment,ruta:r.ruta,supervisor:r.sup,patron:ai[r.code]?.patron||''}));
+    const {data,error}=await sb.functions.invoke(CFG.IA_FUNCION,{body:{tipo:'resumen',casos}});if(error)throw error;
+    aiSum=Array.isArray(data?.patrones)?data.patrones:null;renderD();
+    const {error:e2}=await sb.from('ia').upsert({fecha,filas:ai,resumen:aiSum,actualizado:new Date().toISOString()});
+    msg(e2?'Patrones listos, pero no se pudieron guardar: '+e2.message:'Patrones IA publicados para todos.');b.textContent='Volver a analizar'}
+  catch(err){b.textContent='Error de IA, reintentar';msg('IA: '+(err?.message||err))}
+  b.disabled=false});
+
+renderSlots();initSb();
+}
+</script>
+</body>
+</html>
