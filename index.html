@@ -52,7 +52,7 @@ h1{font-size:clamp(26px,3vw,38px);line-height:1.05;color:#fff;margin:4px 0 0;tex
 .flt label.tg{flex:0 0 auto;flex-direction:row;max-width:none}.tg{display:flex;gap:8px;align-items:center;color:#fff;font-size:14px;min-height:44px}.tg input{width:20px;height:20px;accent-color:var(--y)}
 button{font:600 15px Inter,sans-serif;min-height:44px;border-radius:8px;cursor:pointer;padding:0 14px;border:1px solid #c9c9c9;background:#fff;color:#111}
 .ybtn{background:var(--y);border-color:var(--y);color:#111}
-.lbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;font-weight:700;text-decoration:none;text-align:center}
+.slotErr{display:block;font-size:12px;color:#fff;background:#b71c1c;border-radius:6px;padding:4px 8px;margin-top:4px;overflow-wrap:anywhere}.lbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;font-weight:700;text-decoration:none;text-align:center}
 .slots{display:flex;flex-direction:column;gap:8px}
 .slot{background:#1b1b1b;border:1px solid #333;border-left:4px solid var(--y);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 .slot.sec2{border-left-color:#777}.slot b{font-size:13px;color:#fff}.slot .hint{display:none}
@@ -92,7 +92,7 @@ table{border-collapse:collapse;width:100%}
 th{font-size:12px;font-weight:700;color:#fff;background:#3a3a3a;text-align:left;padding:7px 9px;white-space:nowrap}
 td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
 td.r,th.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.closebox{display:flex;flex-direction:column;gap:6px;margin-top:4px}.closebox button{min-height:40px;font-size:13px}.closebtn{background:#6e2b2b;color:#fff;border-color:#6e2b2b;font-weight:700}.closebox button:not(.ybtn):not(.closebtn){background:#2a2a2a;color:#fff;border-color:#444}.amhead{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;margin:0 0 12px;padding:10px 6px;background:#111;border-radius:10px;color:#fff}.amhead .num{display:block;font-size:26px;line-height:1.1;color:var(--y)}.amhead span{font-size:12px;color:#ccc}.amrow{padding:6px 0;border-bottom:1px solid var(--line)}.amtop{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:4px}.amtop b{white-space:nowrap;font-variant-numeric:tabular-nums}.amtrk .stk{height:14px}.amcols{columns:2 340px;column-gap:40px}.amcols .amrow{break-inside:avoid}.amtop2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px;align-items:center;margin-bottom:8px}@media(max-width:820px){.amtop2{grid-template-columns:minmax(0,1fr)}}.sichead{grid-template-columns:repeat(5,minmax(0,1fr))!important}@media(max-width:700px){.sichead{grid-template-columns:repeat(2,minmax(0,1fr))!important}}.sict td.bar{min-width:220px}.sict .trk{margin-bottom:2px}tr.sifrow td{background:#fbecec}.hadd{border:1px dashed #bdbdbd;border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px}.hadd .tools{margin:4px 0 0}.hadd button[disabled]{opacity:.5;cursor:not-allowed}#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
+.closebox{display:flex;flex-direction:column;gap:6px;margin-top:4px}.closebox button{min-height:40px;font-size:13px}.closebtn{background:#6e2b2b;color:#fff;border-color:#6e2b2b;font-weight:700}.closebox button:not(.ybtn):not(.closebtn){background:#2a2a2a;color:#fff;border-color:#444}.amhead{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;margin:0 0 12px;padding:10px 6px;background:#111;border-radius:10px;color:#fff}.amhead .num{display:block;font-size:26px;line-height:1.1;color:var(--y)}.amhead span{font-size:12px;color:#ccc}.amrow{padding:6px 0;border-bottom:1px solid var(--line)}.amtop{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:4px}.amtop b{white-space:nowrap;font-variant-numeric:tabular-nums}.amtrk .stk{height:14px}.amcols{columns:2 340px;column-gap:40px}.amcols .amrow{break-inside:avoid}.amtop2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px;align-items:center;margin-bottom:8px}@media(max-width:820px){.amtop2{grid-template-columns:minmax(0,1fr)}}.sichead{grid-template-columns:repeat(5,minmax(0,1fr))!important}@media(max-width:700px){.sichead{grid-template-columns:repeat(2,minmax(0,1fr))!important}}.sict td.bar{min-width:220px}.sict .trk{margin-bottom:2px}tr.sifrow td{background:#fbecec}#cMotE .hrow{grid-template-columns:minmax(0,11.5em) minmax(0,1fr) 2.5em;font-size:13px}.hadd{border:1px dashed #bdbdbd;border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:6px}.hadd .tools{margin:4px 0 0}.hadd button[disabled]{opacity:.5;cursor:not-allowed}#tH tbody tr{cursor:pointer}#tH tbody tr:hover td{background:#fff6cf}#tH tr.on td{background:#ffe680;font-weight:700}.viewing{background:#6e2b2b;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}tr.edt td{background:#fff6cf;font-weight:700}
 td.bar{width:30%;min-width:150px;vertical-align:middle}
 .hi{color:#c62828;font-weight:700}.hi::before{content:'▲ ';font-size:10px}
 .note{font-size:12px;color:var(--muted)}
@@ -145,8 +145,9 @@ pre,.scroll{overflow-x:auto}
   </div>
 
   <section class="sect" id="ejecutivo">
-    <div class="g2">
+    <div class="g3">
       <div class="card"><h2>Avance de ruta</h2><div class="cb" id="dAv"></div></div>
+      <div class="card"><h2>Rechazos por motivo</h2><div class="cb"><p class="lead" id="motEHead"></p><div class="legend"><span><i class="dot" style="background:var(--rech)"></i>Rechazo</span><span><i class="dot" style="background:var(--alert)"></i>Alertado</span></div><div id="cMotE"></div></div></div>
       <div class="card"><h2>% entrega por empresario</h2><div class="cb" id="cEdt"></div></div>
     </div>
     <div class="card"><h2>Ejecución de alertas por motivo</h2><div class="cb"><p class="lead">Pedidos con alerta = Sí en la Hoja de Ruta, por motivo de la alerta y cómo terminaron en BEEs. Cada barra muestra cuántas de esas alertas se entregaron, terminaron en rechazo o siguen pendientes.</p><div id="dAl"></div></div></div>
@@ -212,6 +213,8 @@ pre,.scroll{overflow-x:auto}
 </main>
 </div>
 <div id="tip" role="tooltip"></div>
+<div id="errBar" role="alert" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:20;background:#b71c1c;color:#fff;font:13px/1.4 Inter,sans-serif;padding:8px 14px"></div>
+<script>window.showErr=function(m){var b=document.getElementById("errBar");if(!b)return;b.style.display="block";b.textContent="Error en la página: "+m+" — envía una captura de esta franja.";};window.addEventListener("error",function(e){if(e.filename&&/config\.js|cdn|gstatic|cdnjs/.test(e.filename))return;showErr((e.message||"")+(e.lineno?" (línea "+e.lineno+")":""))});window.addEventListener("unhandledrejection",function(e){var r=e.reason;showErr((r&&(r.message||r.code))||String(r))});</script>
 
 <script>
 {
@@ -317,7 +320,7 @@ function render(){
   const first=R.length?new Date(Math.min(...R.map(r=>r.s))):null;const ends=R.filter(r=>r.e).map(r=>r.e);const last=ends.length?new Date(Math.max(...ends)):null;
   const sif=R.filter(r=>r.con==='SIF').length;const over14=R.filter(r=>r.h>14).length;const meta=st.meta;
   $('#updT').textContent=`${rows[0]?.date||''} ${tm(corte)}`;
-  const sv=sicView();renderSIC();
+  let sv=null;try{sv=sicView();renderSIC()}catch(e){console.error(e);showErr('Rutas SIF: '+(e.message||e))}
   $('#strip').innerHTML=[[tms(first),'Hora primera salida'],[tms(last),'Hora última llegada'],[R.length,'# Transportes'],[tv.length?(tv.reduce((s,t)=>s+t.h,0)/tv.length).toFixed(2):'—','Horas promedio por viaje'],...(sv?[[sv.sif,'Rutas SIF (> '+hm(sv.meta)+')'],[pct(sv.sif,sv.P.length)+' %','% Ruta SIF']]:[[over14||'--','Rutas > 14h'],['—','% Ruta SIF (carga el SIC)']])].map(([v,l])=>`<div><b class="num">${v}</b><span>${l}</span></div>`).join('');
   $('#headline').textContent=`${pct(done,n)}% de avance y ${cdMr}% de MR (${mr} pedidos) al corte de las ${tm(corte)}`;
   $('#metaTxt').textContent=`CD Cono Norte · ${rows[0]?.date||''} · `+SL.map(([k,t])=>`${t.split(' (')[0]}: ${info[k]?.cargado?fdt(info[k].cargado):'—'}`).join(' · ');renderSlots();
@@ -357,6 +360,7 @@ function render(){
   // motivos
   const m=a.filter(r=>r.k==='RECH'||r.k==='ALERT');const bm=[...group(m,r=>r.mrf)].map(([k,x])=>[k,cnt(x)]).sort((p,q)=>(q[1].RECH+q[1].ALERT)-(p[1].RECH+p[1].ALERT));const mx=Math.max(1,...bm.map(x=>x[1].RECH+x[1].ALERT));
   $('#cMot').innerHTML=bm.map(([k,c])=>{const t=c.RECH+c.ALERT;return `<div class="hrow"><span class="nm" title="${esc(k)}">${esc(k.charAt(0)+k.slice(1).toLowerCase())}</span><div style="width:${t/mx*100}%">${stk(c,['RECH','ALERT'])}</div><span class="n">${t}</span></div>`}).join('')||'<p class="note">Sin MR con estos filtros.</p>';
+  $('#cMotE').innerHTML=$('#cMot').innerHTML;$('#motEHead').innerHTML=m.length?`<b>${fmt(m.length)}</b> pedidos con MR: <b>${cnt(m).RECH}</b> rechazos y <b>${cnt(m).ALERT}</b> alertados · ${pct(m.length,n)}% de los pedidos.`:'Sin rechazos ni alertas con estos filtros.';
   // pareto
   const bs=[...group(m,r=>r.sup)].map(([k,x])=>[k,x.length]).sort((p,q)=>q[1]-p[1]);const tot=m.length;let acc=0,cutDone=false,ph='';const px=Math.max(1,...bs.map(x=>x[1]));
   for(const [k,v] of bs){const before=acc;acc+=v;const vital=pct(before,tot)<80;if(!vital&&!cutDone){ph+=`<div class="cut">80% acumulado de los MR</div>`;cutDone=true}
@@ -365,7 +369,7 @@ function render(){
   // rutas criticas
   const cr=[...group(a,r=>r.ruta)].map(([k,x])=>{const c=cnt(x);return{k,x,c,t:c.RECH+c.ALERT+c.REPRO}}).filter(o=>o.t).sort((p,q)=>q.t-p.t||q.c.RECH-p.c.RECH).slice(0,10);const cm=Math.max(1,...cr.map(o=>o.t));
   $('#cRut').innerHTML=cr.map(o=>`<div class="hrow"><span class="nm">${esc(o.k)} <span class="note">${esc(short(o.x[0].edt))}</span></span><div style="width:${o.t/cm*100}%">${stk(o.c,['RECH','ALERT','REPRO'])}</div><span class="n">${o.t} · ${Math.round(pct(o.t,o.x.length))}%</span></div>`).join('')||'<p class="note">Sin casos.</p>';
-  renderD();if(typeof renderCloseBox==='function'&&typeof histList!=='undefined')renderCloseBox()}
+  try{renderD()}catch(e){showErr('Detalle: '+(e.message||e))}try{if(typeof renderCloseBox==='function'&&typeof histList!=='undefined')renderCloseBox()}catch(e){showErr('Cerrar día: '+(e.message||e))}}
 
 const detRows=()=>cur().filter(r=>r.k==='RECH'||r.k==='ALERT'||r.k==='REPRO');
 function renderD(){
@@ -407,11 +411,11 @@ const SL=[['bees','Avance de ruta (BEEs)','.csv,.xlsx'],['hoja','Hoja de ruta / 
 const KEEP={sic:['fecha','et','placa','ruta','ini','finReal','finPlan','avance','ubic','meta'],bees:['tour_display_id','tour_date','driver_name','truck_license_plate','poc_external_id','poc_name','status','trip_start_timestamp','trip_end_timestamp','visit_order','within_radius','out_of_radius_reason','arrived_at','finished_at','last_reason_waiting_modulation','last_reason_rescheduled','poc_rescheduled_count','total_delivered_vol','total_refused_vol','volume_hectoliters_sum','tour_status'],
  hoja:['Fecha','Codigo','Ruta','Cliente','Ciudad','alerta','mr','retroalimentacion','Validado_por','UsuarioAlerta','fechahoraalerta','supervisor','agente','zonaac','Canal','UnidadDeNegocio','Empresa','Monto_pedido','Condicion_pago','Hl_Programado','Entrega Cjs','Abre','Cierra'],
  disp:['RUTA SAP','placa','CAPAC','TIPO DE CONTRATO','STATUS','EMPRESARIO','DISP. FLOTA','COMENTARIO']};
-const info={},busy={};let sb=null,user=null,isAdmin=false,authOpen=false;
+const info={},busy={},slotErr={};let sb=null,user=null,isAdmin=false,authOpen=false;
 const fdt=d=>d?d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
 const msg=t=>{$('#syncMsg').textContent=t};
 function renderSlots(){
-  $('#slots').innerHTML=SL.map(([k,t,acc],i)=>{const f=info[k]||{};return `<div class="slot${i==2?' sec2':''}"><b>${t}</b><span class="stt">${f.nombre?`<i>${esc(f.nombre)}</i><br>${fmt(f.filas||0)} filas · ${fdt(f.cargado)}`:'Sin datos cargados'}</span>${busy[k]?`<span><span class="badge">${busy[k]}</span></span>`:''}${isAdmin?`<button type="button" class="${i!==2?'ybtn':''}" data-up="${k}">${i!==2?'Actualizar':'Actualizar si cambió'}</button><input type="file" id="f_${k}" accept="${acc}" hidden>`:''}</div>`}).join('');
+  $('#slots').innerHTML=SL.map(([k,t,acc],i)=>{const f=info[k]||{};return `<div class="slot${i==2?' sec2':''}"><b>${t}</b><span class="stt">${f.nombre?`<i>${esc(f.nombre)}</i><br>${fmt(f.filas||0)} filas · ${fdt(f.cargado)}`:'Sin datos cargados'}</span>${busy[k]?`<span><span class="badge">${busy[k]}</span></span>`:''}${slotErr[k]?`<span class="slotErr">⚠ ${esc(slotErr[k])}</span>`:''}${isAdmin?`<button type="button" class="${i!==2?'ybtn':''}" data-up="${k}">${i!==2?'Actualizar':'Actualizar si cambió'}</button><input type="file" id="f_${k}" accept="${acc}" hidden>`:''}</div>`}).join('');
   $('#btnAI').hidden=!(isAdmin&&CFG.IA_FUNCION);if(typeof renderHistAdmin==='function'&&$('#histAdmin')){renderHistAdmin();renderCloseBox()}
   const a=$('#auth');
   if(user)a.innerHTML=`<span class="ldn">Sesión: ${esc(user.email)}${isAdmin?' · administrador':' · sin permiso de carga'}</span><button type="button" id="btnOut">Salir</button>`;
@@ -432,16 +436,16 @@ async function onSession(s){
 const trim=(k,arr)=>{const cols=KEEP[k];return{cols,rows:arr.map(o=>cols.map(c=>o[c]==null?'':String(o[c])))}};
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('[data-up]');if(b)document.getElementById('f_'+b.dataset.up).click()});
 $('#slots').addEventListener('change',async e=>{
-  const inp=e.target;if(!inp.files?.length||!isAdmin)return;const k=inp.id.slice(2);const f=inp.files[0];
+  const inp=e.target;if(!inp.files?.length||!isAdmin)return;const k=inp.id.slice(2);const f=inp.files[0];slotErr[k]=null;
   try{busy[k]='Leyendo…';renderSlots();let found=null;
     if(k==='sic')found=['sic',await readSICFile(f)];else if(/\.csv$/i.test(f.name))found=classify(parseCSV(await f.text()));
     else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});for(const sh of wb.SheetNames){found=classify(XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,raw:false,defval:''}));if(found&&found[0]===k)break}}
-    if(!found||found[0]!==k){msg(`${f.name} no parece ser "${SL.find(x=>x[0]===k)[1]}". Revisa que tenga sus columnas originales.`)}
+    if(!found||found[0]!==k){slotErr[k]=`${f.name} no parece ser este archivo`;msg(`${f.name} no parece ser "${SL.find(x=>x[0]===k)[1]}". Revisa que tenga sus columnas originales.`)}
     else{const pk=trim(k,found[1]);busy[k]='Subiendo…';renderSlots();
       const {error}=await sb.from('fuentes').upsert({tipo:k,nombre:f.name,filas:pk.rows.length,cargado:new Date().toISOString(),datos:pk});
-      if(error)msg('No se pudo guardar: '+error.message);
+      if(error){const em=/tipo_check/.test(error.message)?'Supabase aún no acepta este archivo: ejecuta actualizacion_sic.sql en el SQL Editor.':'No se pudo guardar: '+error.message;slotErr[k]=em;msg(em)}
       else{raw[k]=toObjs(pk);info[k]={nombre:f.name,filas:pk.rows.length,cargado:new Date()};if(viewDate){viewDate=null;hist={};$('#viewBanner').hidden=true}build();msg(`${f.name} publicado: todos ya ven esta versión.`);await archiveDay()}}}
-  catch(err){msg('Error al leer '+f.name+': '+err.message)}
+  catch(err){slotErr[k]='No se pudo leer '+f.name+': '+err.message;msg(slotErr[k])}
   busy[k]=null;inp.value='';renderSlots()});
 async function loadOne(k){
   const {data,error}=await sb.from('fuentes').select('tipo,nombre,filas,cargado,datos').eq('tipo',k).maybeSingle();
@@ -462,7 +466,7 @@ function initSb(){
     :!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(CFG.SUPABASE_URL.trim())?'SUPABASE_URL no tiene el formato correcto. Debe ser como https://abcd1234.supabase.co (sin nada después). Ahora dice: '+CFG.SUPABASE_URL
     :!CFG.SUPABASE_ANON_KEY||/TU-ANON-KEY/.test(CFG.SUPABASE_ANON_KEY)?'config.js todavía tiene la clave de ejemplo (TU-ANON-KEY). Pon la clave anon public.'
     :!window.supabase?'No se pudo cargar la librería de Supabase (cdn.jsdelivr.net). Revisa tu internet o si la red de la empresa la bloquea.':null;
-  if(why){$('#headline').textContent='Falta configurar la conexión';msg(why);renderSlots();return}
+  if(why){$('#headline').textContent='Falta configurar la conexión';msg(why);$('#metaTxt').textContent='Motivo: '+why;renderSlots();return}
   sb=supabase.createClient(CFG.SUPABASE_URL.trim(),CFG.SUPABASE_ANON_KEY.trim());
   sb.auth.getSession().then(({data})=>onSession(data.session));
   sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')onSession(s)});
